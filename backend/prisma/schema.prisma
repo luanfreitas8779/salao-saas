@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CLIENT
+  ADMIN
+}
+
+enum Status {
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+model Users {
+  id String @id @default(uuid())
+  name String
+  email String @unique
+  phone String @unique
+  password_hash String
+  role Role @default(CLIENT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments Appointments[]
+  recoveryPasswordToken PasswordResetToken[]
+  @@map("users")
+}
+
+model Procedures {
+  id String @id @default(uuid())
+  name String
+  description String
+  price Int
+  duration_minutes Int
+  is_active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments Appointments[]
+  @@map("procedures")
+}
+
+model Appointments {
+  id String @id @default(uuid())
+  client_id String
+  client Users @relation(fields:[client_id], references:[id], onDelete: Cascade)
+  procedure_id String
+  procedure Procedures @relation(fields: [procedure_id], references: [id], onDelete: Cascade)
+  start_time DateTime
+  end_time DateTime
+  observation String?
+  status Status @default(SCHEDULED)
+
+  @@map("appointments")
+}
+
+model Schedule_blocks {
+  id String @id @default(uuid())
+  start_time DateTime
+  end_time DateTime
+  reason String?
+
+  @@map("schedule_blocks")
+}
+
+model PasswordResetToken {
+  id String @id @default(uuid())
+  userId String
+  token_hash String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  used Boolean @default(false)
+
+  user Users @relation(fields: [userId], references: [id])
+
+  @@map("passwordResetToken")
+}
+
+model WorkingHours {
+  id String @id @default(uuid())
+  dayOfWeek Int
+  start_time String
+  end_time String
+  break_start String?
+  break_end String?
+  isOpen Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dayOfWeek])
+  @@map("workingHours")
+}
