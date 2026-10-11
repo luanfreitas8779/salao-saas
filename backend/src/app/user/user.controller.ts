@@ -2,89 +2,91 @@ import { Request, Response } from "express";
 import { UserService } from "./user.service";
 
 interface AuthLoginProps {
-    email: string;
-    password: string;
+  email: string;
+  password: string;
 }
 
 interface CreateNewUserProps {
-    name: string;
-    email: string;
-    phone: string;
-    password: string;
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
 }
 
 interface RecoveryPasswordProps {
-    email: string;
+  email: string;
 }
 
 interface ResetPasswordProps {
-    token: string;
-    newPassword: string;
+  newPassword: string;
 }
 
 export class UserController {
-    constructor (private readonly service: UserService) {}
+  constructor(private readonly service: UserService) {}
 
-    authLogin = async (req: Request, res: Response) => {
-        const { email, password }: AuthLoginProps = req.body;
-        
-        const login = await this.service.authLogin({ email: email, password: password });
+  authLogin = async (req: Request, res: Response) => {
+    const { email, password }: AuthLoginProps = req.body;
 
-        res.status(200).json({ login });
-    }
+    const login = await this.service.authLogin({
+      email: email,
+      password: password,
+    });
 
-    CreateNewUser = async (req: Request, res: Response) => {
-        const { name, email, phone, password }: CreateNewUserProps = req.body;
+    res.status(200).json({ login });
+  };
 
-        const createUser = await this.service.CreateNewUser({
-            name: name,
-            email: email,
-            phone: phone,
-            password: password,
-        });
+  CreateNewUser = async (req: Request, res: Response) => {
+    const { name, email, phone, password }: CreateNewUserProps = req.body;
 
-        res.status(201).json({ createUser });
-    }
+    const createUser = await this.service.CreateNewUser({
+      name: name,
+      email: email,
+      phone: phone,
+      password: password,
+    });
 
-    recoveryPassword = async (req: Request, res: Response) => {
-        const { email }: RecoveryPasswordProps = req.body;
+    res.status(201).json({ createUser });
+  };
 
-            const recoveryPassword = await this.service.recoveryPassword({
-                email: email,
-            });
+  recoveryPassword = async (req: Request, res: Response) => {
+    const { email }: RecoveryPasswordProps = req.body;
 
-        res.status(200).json(recoveryPassword);
-    }
+    const recoveryPassword = await this.service.recoveryPassword({
+      email: email,
+    });
 
-    resetPassword = async (req: Request, res: Response) => {
-        const { token, newPassword }: ResetPasswordProps = req.body;
+    res.status(200).json(recoveryPassword);
+  };
 
-        const resetPassword = await this.service.resetPassword({
-            token: token,
-            newPassword: newPassword,
-        });
+  resetPassword = async (req: Request, res: Response) => {
+    const token = req.params.token as string;
+    const { newPassword }: ResetPasswordProps = req.body;
 
-        res.status(200).json({ resetPassword });
-    }
+    const resetPassword = await this.service.resetPassword({
+      token: token,
+      newPassword: newPassword,
+    });
 
-    getUserById = async (req: Request, res: Response) => {
-        const id: string = req.user_id!;
+    res.status(200).json({ resetPassword });
+  };
 
-        const user = await this.service.getUserById({ id: id as string });
+  getUserById = async (req: Request, res: Response) => {
+    const id: string = req.user_id!;
 
-        res.status(200).json({ user });
-    }
+    const user = await this.service.getUserById({ id: id });
 
-    updateProfile = async (req: Request, res: Response) => {
-        const { phone, password } = req.body;
+    res.status(200).json({ user });
+  };
 
-        const user = await this.service.updateProfile({
-            id: req.user_id!,
-            phone,
-            password,
-        });
+  updateProfile = async (req: Request, res: Response) => {
+    const { phone, password } = req.body;
 
-        res.status(200).json({ user });
-    }
+    const user = await this.service.updateProfile({
+      id: req.user_id!,
+      phone: phone,
+      password: password,
+    });
 
+    res.status(200).json({ user });
+  };
 }

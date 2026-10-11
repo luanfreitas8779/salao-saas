@@ -28,7 +28,7 @@ routes.post(
 );
 
 routes.put(
-  "/",
+  "/:id",
   isAuthenticated,
   isAdmin,
   validateSchema(editProcedureSchema),
@@ -36,7 +36,7 @@ routes.put(
 );
 
 routes.delete(
-  "/",
+  "/:id",
   isAuthenticated,
   isAdmin,
   validateSchema(deleteProcedureSchema),

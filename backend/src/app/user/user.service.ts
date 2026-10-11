@@ -1,8 +1,13 @@
-import { compare } from "bcrypt";
+import { compare, hash } from "bcrypt";
 import { sign } from "jsonwebtoken";
-import { BadRequestError, ConflictError, InternalServerError, NotFoundError, UnauthorizedError } from "../../errors/app-error";
+import {
+  BadRequestError,
+  ConflictError,
+  InternalServerError,
+  NotFoundError,
+  UnauthorizedError,
+} from "../../errors/app-error";
 import { UserRepository } from "./user.repository";
-import bcrypt from "bcrypt";
 import { sendMail } from "../../config/mailer";
 import crypto from "crypto";
 import "dotenv/config";
@@ -20,16 +25,35 @@ interface AuthLoginResponse {
 }
 
 interface CreateNewUserProps {
-    name: string;
-    email: string;
-    phone: string;
-    password: string;
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+}
+
+interface RecoveryPasswordProps {
+  email: string;
+}
+
+interface ResetPasswordProps {
+  token: string;
+  newPassword: string;
+}
+
+interface GetUserByIdProps {
+  id: string;
+}
+
+interface UpdateProfileProps {
+  id: string;
+  phone?: string;
+  password?: string;
 }
 
 export class UserService {
-    constructor(private readonly repository: UserRepository) {}
+  constructor(private readonly repository: UserRepository) {}
 
-    async authLogin({
+  async authLogin({
     email,
     password,
   }: AuthLoginProps): Promise<AuthLoginResponse> {
@@ -52,14 +76,10 @@ export class UserService {
     if (!process.env.JWT_SECRET) {
       throw new InternalServerError("CHAVE DE CRIPTOGRAFIA NÃO ENCONTRADA");
     }
-    const token = sign(
-      { role: user.role },
-      process.env.JWT_SECRET as string,
-      {
-        subject: user.id,
-        expiresIn: "30d",
-      },
-    );
+    const token = sign({ role: user.role }, process.env.JWT_SECRET as string, {
+      subject: user.id,
+      expiresIn: "30d",
+    });
 
     return {
       id: user.id,
@@ -75,7 +95,6 @@ export class UserService {
     phone,
     password,
   }: CreateNewUserProps): Promise<string> {
-
     const [emailExists, phoneExists] = await Promise.all([
       this.repository.findUserByEmail({ email: email }),
       this.repository.findUserByPhone({ phone: phone }),
@@ -86,10 +105,12 @@ export class UserService {
     }
 
     if (phoneExists) {
-      throw new ConflictError("Já existe um usuário com este número de telefone!");
+      throw new ConflictError(
+        "Já existe um usuário com este número de telefone!",
+      );
     }
 
-    const password_hash = await bcrypt.hash(password, 10);
+    const password_hash = await hash(password, 10);
 
     const user = await this.repository.createUser({
       name: name,
@@ -97,18 +118,21 @@ export class UserService {
       phone: phone,
       password_hash: password_hash,
     });
-    
 
     return user.name;
-    }
+  }
 
-    async recoveryPassword({ email }: { email: string }): Promise<string> {
-        const userExists = await this.repository.findUserByEmail({ email: email });
+  async recoveryPassword({ email }: RecoveryPasswordProps): Promise<string> {
+    //Mesma resposta para email existente ou não, evitando descobrir quem é cliente
+    const genericMessage =
+      "Se esse email existir, enviaremos o link de recuperação.";
+
+    const userExists = await this.repository.findUserByEmail({ email: email });
 
     if (!userExists) {
-      throw new BadRequestError("Se o email existir, enviaremos o token por email!");
+      return genericMessage;
     }
-    
+
     const rawToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto
       .createHash("sha256")
@@ -122,28 +146,35 @@ export class UserService {
       expiresAt: expiresAt,
     });
 
-    if(!newToken) {
-      throw new InternalServerError("Erro ao criar token de recuperação de senha.");
+    if (!newToken) {
+      throw new InternalServerError(
+        "Erro ao criar token de recuperação de senha.",
+      );
     }
 
-    try{
-    await sendMail(
-      userExists.email,
-      "Recuperação de senha",
-      `<h2> Olá ${userExists.name}</h2>
+    try {
+      await sendMail(
+        userExists.email,
+        "Recuperação de senha",
+        `<h2> Olá ${userExists.name}</h2>
         <p>Você solicitou redefinição de senha. Clique no link abaixo para redefinir sua senha!</p>
         <a href="http://localhost:3333/auth/recoverypassword/${rawToken}">👉 Redefinir minha senha!</a>
         <p>Este link expira em 15 minutos!</p>`,
-    );
-    }catch (error) {
-      throw new InternalServerError("Erro ao enviar email de recuperação de senha.");
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        "Erro ao enviar email de recuperação de senha.",
+      );
     }
 
-    return "Se esse email existir, enviaremos o link de recuperação.";
-    }
+    return genericMessage;
+  }
 
-    async resetPassword({ token, newPassword }: { token: string; newPassword: string }): Promise<string> {
-        if (!token) {
+  async resetPassword({
+    token,
+    newPassword,
+  }: ResetPasswordProps): Promise<string> {
+    if (!token) {
       throw new BadRequestError("Token inválido ou expirado!");
     }
     //Coleta o token correto e faz o hash para comparar com o banco de dados
@@ -151,12 +182,13 @@ export class UserService {
 
     //Gera o hash da senha antes de iniciar transações no banco para
     //diminuir intervalo entre tratativas no banco, evitando dupla solicitação com mesmo token
-    const newPasswordHashed = await bcrypt.hash(newPassword, 10);
+    const newPasswordHashed = await hash(newPassword, 10);
 
     //Faz update no used para true e valida se existe na mesma chamada
     //Por ser a primeira coisa feita, isso vai evitar dupla solicitação
-
-    const tokenUpdate = await this.repository.updatePasswordResetToken({hashedToken: hashedToken})
+    const tokenUpdate = await this.repository.updatePasswordResetToken({
+      hashedToken: hashedToken,
+    });
 
     // Valida o token
     if (!tokenUpdate) {
@@ -164,9 +196,10 @@ export class UserService {
     }
 
     //Agora sim coleta os dados do token de forma segura com o findFirst
-    const tokenData = await this.repository.findPasswordResetToken({ hashedToken: hashedToken });
+    const tokenData = await this.repository.findPasswordResetToken({
+      hashedToken: hashedToken,
+    });
 
-    //Verifica 
     if (!tokenData) {
       throw new BadRequestError("Usuário não encontrado para este token.");
     }
@@ -177,47 +210,36 @@ export class UserService {
       newPasswordHash: newPasswordHashed,
     });
 
-    if(!updatePassword) {
+    if (!updatePassword) {
       throw new InternalServerError("Erro ao atualizar a senha do usuário.");
     }
 
     return "Senha alterada com sucesso!";
+  }
+
+  async getUserById({ id }: GetUserByIdProps) {
+    const user = await this.repository.findUserById({ id });
+
+    if (!user) {
+      throw new NotFoundError("Usuário não encontrado");
     }
 
-    async getUserById({ id }: { id: string }) {
-      const user = await this.repository.findUserById({ id });
+    const { password_hash, ...safeUser } = user;
+    return safeUser;
+  }
 
-      if (!user) {
-        throw new NotFoundError("Usuário não encontrado");
+  async updateProfile({ id, phone, password }: UpdateProfileProps) {
+    if (phone) {
+      const phoneOwner = await this.repository.findUserByPhone({ phone });
+      if (phoneOwner && phoneOwner.id !== id) {
+        throw new ConflictError(
+          "Já existe um usuário com este número de telefone!",
+        );
       }
-
-      const { password_hash, ...safeUser } = user;
-      return safeUser;
     }
 
-    async updateProfile({
-      id,
-      phone,
-      password,
-    }: {
-      id: string;
-      phone?: string;
-      password?: string;
-    }) {
-      if (phone) {
-        const phoneOwner = await this.repository.findUserByPhone({ phone });
-        if (phoneOwner && phoneOwner.id !== id) {
-          throw new ConflictError(
-            "Já existe um usuário com este número de telefone!",
-          );
-        }
-      }
+    const password_hash = password ? await hash(password, 10) : undefined;
 
-      const password_hash = password
-        ? await bcrypt.hash(password, 10)
-        : undefined;
-
-      return this.repository.updateProfile({ id, phone, password_hash });
-    }
-
+    return this.repository.updateProfile({ id, phone, password_hash });
+  }
 }

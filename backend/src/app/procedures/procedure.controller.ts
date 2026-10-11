@@ -8,12 +8,7 @@ interface CreateNewProcedureProps {
   duration_minutes: number;
 }
 
-interface DeleteProcedureProps {
-  id: string;
-}
-
 interface EditProceduresProps {
-  id: string;
   name: string;
   description: string;
   price: number;
@@ -41,14 +36,14 @@ export class ProcedureController {
   };
 
   deleteProcedure = async (req: Request, res: Response) => {
-    const { id }: DeleteProcedureProps = req.body;
+    const id = req.params.id as string;
     const deleteProcedure = await this.service.deleteProcedure({ id: id });
     res.status(200).json({ deleteProcedure });
   };
 
   editProcedure = async (req: Request, res: Response) => {
+    const id = req.params.id as string;
     const {
-      id,
       name,
       description,
       price,

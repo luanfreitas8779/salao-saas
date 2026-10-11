@@ -19,13 +19,6 @@ routes.get(
   appointmentController.availableTimes,
 );
 
-routes.get(
-  "/availability",
-  isAuthenticated,
-  validateSchema(appointmentAvailabilitySchema),
-  appointmentController.availableTimes,
-);
-
 routes.post(
   "/",
   isAuthenticated,

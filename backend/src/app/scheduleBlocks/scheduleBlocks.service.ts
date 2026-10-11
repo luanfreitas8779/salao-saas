@@ -28,7 +28,7 @@ export class ScheduleBlocksService {
       }),
     ]);
 
-    if (hasScheduleBlock || findConflitingAppointments) {
+    if (hasScheduleBlock.length > 0 || findConflitingAppointments) {
       throw new BadRequestError(
         "Já existe algum bloqueio ou agendamento para a data selecionada.",
       );

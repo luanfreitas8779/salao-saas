@@ -15,13 +15,18 @@ Detalhes técnicos do que existe: [ARQUITETURA.md](ARQUITETURA.md).
 - [x] Meus agendamentos, grade do admin, cancelar e editar (regra de 24h)
 - [x] Criação de bloqueios de agenda
 - [x] Estrutura em camadas, erros centralizados, validação Zod, seed
+- [x] Validação de expediente, pausa, grade e passado ao agendar/editar
+- [x] Fuso do salão centralizado (UTC-3) na disponibilidade e na grade
+- [x] Rotas alinhadas ao documento (`/auth/*`, `/procedures/:id`, `/appointments/slots`)
+- [x] Correção do horário de funcionamento (atualização em lote por dia), dos bloqueios (datas completas, conflito, `this`) e do seed (senha com hash)
+- [x] Padronização: erros (401/403/409/429), ordem dos middlewares, estilo do módulo `user`
 
 ## Falta — Backend
 
 ### Alta prioridade
+- [ ] **E-mail de recuperação**: o link aponta para `localhost:3333/auth/recoverypassword/<token>`, rota que não existe; deve usar a URL do front-end vinda de variável de ambiente
+- [ ] **CORS**: configurar origens permitidas antes de publicar (hoje `cors()` aberto, para testes locais)
 - [ ] **Bloqueios**: listar, editar e remover; confirmar bloqueio de dia inteiro/feriado; exibir bloqueios na grade do admin
-- [ ] **Validar criação/edição de agendamento**: horário dentro do expediente, fora da pausa, alinhado ao passo da grade, no futuro (hoje só checa bloqueios)
-- [ ] **Alinhar rotas ao documento** (ou atualizar o documento): `PUT/DELETE /procedures/:id`, `/auth/recover`, `/auth/*`
 - [ ] **Testes automatizados** do motor de disponibilidade, trava de conflito, regra de cancelamento e autorização
 
 ### Média prioridade
@@ -29,7 +34,6 @@ Detalhes técnicos do que existe: [ARQUITETURA.md](ARQUITETURA.md).
 - [ ] Política de cancelamento configurável (hoje fixa em 24h)
 - [ ] Decidir tipos: `price` inteiro (centavos) vs decimal; `description` opcional; nomes dos papéis (`CLIENT/ADMIN` vs `client/prof`)
 - [ ] Paginação em `/appointments/me` e `/appointments/board`
-- [ ] Revisar status HTTP do `isAuthenticated` (hoje retorna 400 em vez de 401)
 - [ ] Confirmar envio de e-mail de recuperação de ponta a ponta
 
 ### Infra / documentação

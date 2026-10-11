@@ -10,7 +10,16 @@ import { ScheduleBlocksRepository } from "../scheduleBlocks/scheduleBlocks.repos
 import { UserRepository } from "../user/user.repository";
 import { WorkingHoursRepository } from "../workingHours/workingHours.repository";
 import { AppointmentRepository } from "./appointment.repository";
-import { addHours, addMinutes, isBefore, parse, format } from "date-fns";
+import { addHours, addMinutes, isBefore } from "date-fns";
+import {
+  SLOT_STEP_MINUTES,
+  businessDateTime,
+  businessDayOfWeek,
+  fromMinutes,
+  nextBusinessDay,
+  toBusinessWallClock,
+  toMinutes,
+} from "../../utils/businessTime";
 
 const CANCEL_MIN_HOURS = 24;
 
@@ -55,14 +64,14 @@ function assertMinLeadTime(startTime: Date) {
 export class AppointmentService {
   constructor(
     private readonly appointmentRepository: AppointmentRepository,
-    private readonly ProcedureRepository: ProcedureRepository,
+    private readonly procedureRepository: ProcedureRepository,
     private readonly scheduleBlocksRepository: ScheduleBlocksRepository,
     private readonly workingHoursRepository: WorkingHoursRepository,
     private readonly userRepository: UserRepository,
   ) {}
 
   async availableTimes({ procedure_id, date }: AppointmentAvailabilityProps) {
-    const procedure = await this.ProcedureRepository.findProcedureById({
+    const procedure = await this.procedureRepository.findProcedureById({
       id: procedure_id,
     });
 
@@ -71,10 +80,9 @@ export class AppointmentService {
     }
 
     const duration_time = procedure.duration_minutes;
-    const startDay = parse("00:00", "HH:mm", new Date(date));
-    const endDay = parse("23:59:59", "HH:mm:ss", new Date(date));
-    const dayNow = new Date(date);
-    const dayOfWeek = dayNow.getUTCDay();
+    const startDay = businessDateTime(date);
+    const endDay = nextBusinessDay(date);
+    const dayOfWeek = businessDayOfWeek(date);
 
     const workingHours =
       await this.workingHoursRepository.findWorkingHoursOfDay(dayOfWeek);
@@ -85,8 +93,8 @@ export class AppointmentService {
       );
     }
 
-    const openHour = parse(workingHours.start_time, "HH:mm", new Date(date));
-    const closeHour = parse(workingHours.end_time, "HH:mm", new Date(date));
+    const openMinutes = toMinutes(workingHours.start_time);
+    const closeMinutes = toMinutes(workingHours.end_time);
 
     const [getBlocksOnDay, appointmentsOnDay] = await Promise.all([
       this.scheduleBlocksRepository.findConflictingScheduleBlock({
@@ -99,43 +107,85 @@ export class AppointmentService {
       }),
     ]);
 
-    let blocksOnDay = [...appointmentsOnDay, ...getBlocksOnDay];
+    const blocksOnDay = [...appointmentsOnDay, ...getBlocksOnDay];
 
     if (workingHours.break_start && workingHours.break_end) {
-      const startBreak = parse(
-        workingHours.break_start,
-        "HH:mm",
-        new Date(date),
-      );
-      const endBreak = parse(workingHours.break_end, "HH:mm", new Date(date));
       blocksOnDay.push({
-        start_time: startBreak,
-        end_time: endBreak,
+        start_time: businessDateTime(date, workingHours.break_start),
+        end_time: businessDateTime(date, workingHours.break_end),
       });
     }
-    blocksOnDay.sort((a, b) => +a.start_time - +b.start_time);
 
-    const possibleHours = [];
-    let startHourCompare = openHour;
-    let finishHourCompare = addMinutes(startHourCompare, duration_time);
+    const now = new Date();
+    const possibleHours: string[] = [];
 
-    while (finishHourCompare <= closeHour) {
-      const isBlocked = blocksOnDay.some((block) => {
-        return (
-          startHourCompare < block.end_time &&
-          finishHourCompare > block.start_time
-        );
-      });
+    for (
+      let slotStart = openMinutes;
+      slotStart + duration_time <= closeMinutes;
+      slotStart += SLOT_STEP_MINUTES
+    ) {
+      const slotStartTime = businessDateTime(date, fromMinutes(slotStart));
+      const slotEndTime = addMinutes(slotStartTime, duration_time);
 
-      if (!isBlocked) {
-        possibleHours.push(format(startHourCompare, "HH:mm"));
+      const isPast = slotStartTime <= now;
+      const isBlocked = blocksOnDay.some(
+        (block) =>
+          slotStartTime < block.end_time && slotEndTime > block.start_time,
+      );
+
+      if (!isPast && !isBlocked) {
+        possibleHours.push(fromMinutes(slotStart));
       }
-
-      startHourCompare = addMinutes(startHourCompare, 30);
-      finishHourCompare = addMinutes(finishHourCompare, 30);
     }
 
     return possibleHours;
+  }
+
+  // Garante que o intervalo [start, end] respeita as regras do salão:
+  // futuro, dia aberto, dentro do expediente, fora da pausa e na grade de horários
+  private async assertWithinBusinessRules(start: Date, end: Date) {
+    if (start <= new Date()) {
+      throw new BadRequestError(
+        "Não é possível agendar em um horário que já passou.",
+      );
+    }
+
+    const { date, minutes: startMinutes } = toBusinessWallClock(start);
+    const { date: endDate, minutes: endMinutes } = toBusinessWallClock(end);
+
+    const workingHours = await this.workingHoursRepository.findWorkingHoursOfDay(
+      businessDayOfWeek(date),
+    );
+
+    if (!workingHours || !workingHours.isOpen) {
+      throw new BadRequestError("O salão não funciona neste dia.");
+    }
+
+    const openMinutes = toMinutes(workingHours.start_time);
+    const closeMinutes = toMinutes(workingHours.end_time);
+
+    if (
+      endDate !== date ||
+      startMinutes < openMinutes ||
+      endMinutes > closeMinutes
+    ) {
+      throw new BadRequestError("Horário fora do expediente do salão.");
+    }
+
+    if ((startMinutes - openMinutes) % SLOT_STEP_MINUTES !== 0) {
+      throw new BadRequestError(
+        `Horário inválido. Os horários seguem intervalos de ${SLOT_STEP_MINUTES} minutos a partir da abertura.`,
+      );
+    }
+
+    if (workingHours.break_start && workingHours.break_end) {
+      const breakStart = toMinutes(workingHours.break_start);
+      const breakEnd = toMinutes(workingHours.break_end);
+
+      if (startMinutes < breakEnd && endMinutes > breakStart) {
+        throw new BadRequestError("Horário conflita com a pausa do salão.");
+      }
+    }
   }
 
   private async resolveActorRole(actor_id: string, actor_role?: string) {
@@ -157,7 +207,7 @@ export class AppointmentService {
   }: CreateAppointmentProps): Promise<Appointments | null> {
     actor_role = await this.resolveActorRole(actor_id, actor_role);
 
-    const procedure = await this.ProcedureRepository.findProcedureById({
+    const procedure = await this.procedureRepository.findProcedureById({
       id: procedure_id,
     });
 
@@ -181,6 +231,8 @@ export class AppointmentService {
 
     const startHour = new Date(start_time);
     const end_time = addMinutes(startHour, procedure.duration_minutes);
+
+    await this.assertWithinBusinessRules(startHour, end_time);
 
     const hasBlock =
       await this.scheduleBlocksRepository.findConflictingScheduleBlock({
@@ -208,8 +260,8 @@ export class AppointmentService {
   }
 
   async listBoard(start_date: string, end_date: string) {
-    const startDate = parse("00:00", "HH:mm", new Date(start_date));
-    const endDate = parse("23:59:59", "HH:mm:ss", new Date(end_date));
+    const startDate = businessDateTime(start_date);
+    const endDate = nextBusinessDay(end_date);
     return this.appointmentRepository.findBoard({ startDate, endDate });
   }
 
@@ -276,7 +328,7 @@ export class AppointmentService {
     }
 
     const nextProcedureId = procedure_id ?? appointment.procedure_id;
-    const procedure = await this.ProcedureRepository.findProcedureById({
+    const procedure = await this.procedureRepository.findProcedureById({
       id: nextProcedureId,
     });
 
@@ -291,6 +343,10 @@ export class AppointmentService {
 
     if (!admin && start_time) {
       assertMinLeadTime(nextStart);
+    }
+
+    if (start_time || procedure_id) {
+      await this.assertWithinBusinessRules(nextStart, nextEnd);
     }
 
     const hasBlock =

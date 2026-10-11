@@ -26,6 +26,7 @@ middlewares/              isAuthenticated, isAdmin, validateSchema, rate limiter
 schemas/<modulo>/         Schemas Zod de entrada
 errors/app-error.ts       AppError e subclasses (BadRequest, NotFound, Conflict, Forbidden, Unauthorized)
 config/mailer.ts          Transporte de e-mail
+utils/businessTime.ts     Conversão entre horário do salão (UTC-3) e instantes UTC
 prisma/index.ts           Instância do PrismaClient
 generated/prisma/         Client gerado (não editar)
 @types/express/           Extensão de Request (user_id, user_role)
@@ -54,20 +55,20 @@ Prefixo `/api`. Auth = `Authorization: Bearer <JWT>`.
 
 | Método e rota | Permissão | Função |
 |---|---|---|
-| `POST /users/auth/register` | Público | Cadastra cliente |
-| `POST /users/auth/login` | Público (rate limit) | Retorna JWT |
-| `POST /users/auth/recovery-password` | Público (rate limit) | Envia token de reset por e-mail |
-| `POST /users/auth/reset-password/:token` | Público | Redefine senha |
+| `POST /auth/register` | Público | Cadastra cliente |
+| `POST /auth/login` | Público (rate limit) | Retorna JWT |
+| `POST /auth/recover` | Público (rate limit) | Envia token de reset por e-mail |
+| `POST /auth/reset-password/:token` | Público | Redefine senha (`newPassword` no body) |
 | `GET /users/profile` | Autenticado | Dados do usuário |
 | `PATCH /users/profile` | Autenticado | Atualiza perfil |
 | `GET /procedures` | Público | Procedimentos ativos |
 | `GET /procedures/all` | Admin | Todos os procedimentos |
 | `POST /procedures` | Admin | Cria |
-| `PUT /procedures` | Admin | Edita |
-| `DELETE /procedures` | Admin | Soft-delete |
-| `PUT /working-hours` | Admin | Atualiza horário de funcionamento |
-| `POST /schedule-blocks` | Admin | Cria bloqueio |
-| `GET /appointments/slots` (alias `/availability`) | Autenticado | Slots livres (`procedure_id`, `date`) |
+| `PUT /procedures/:id` | Admin | Edita |
+| `DELETE /procedures/:id` | Admin | Soft-delete |
+| `PUT /working-hours` | Admin | Atualiza horário de funcionamento (`newData`: lista de `{ day, start_time, end_time, break_start?, break_end?, isOpen }`) |
+| `POST /schedule-blocks` | Admin | Cria bloqueio (`start_time`/`end_time` ISO, `reason`); recusa se houver bloqueio ou agendamento no intervalo |
+| `GET /appointments/slots` | Autenticado | Slots livres (`procedure_id`, `date`) |
 | `POST /appointments` | Autenticado | Cria agendamento (admin pode informar `client_id`) |
 | `GET /appointments/me` | Autenticado | Agendamentos do cliente |
 | `GET /appointments/board` | Admin | Grade por período |
@@ -76,7 +77,9 @@ Prefixo `/api`. Auth = `Authorization: Bearer <JWT>`.
 
 ## Regras de negócio implementadas
 
-- **Disponibilidade**: duração do procedimento + expediente do dia + pausa + agendamentos + bloqueios; passo de 30 min.
+- **Disponibilidade**: duração do procedimento + expediente do dia + pausa + agendamentos + bloqueios; passo de 30 min; horários já passados não aparecem.
+- **Validação ao agendar/editar**: horário futuro, dia aberto, dentro do expediente, fora da pausa e alinhado à grade de 30 min a partir da abertura (`assertWithinBusinessRules`).
+- **Fuso**: horários do salão são `America/Sao_Paulo` (UTC-3 fixo, sem horário de verão), centralizados em `src/utils/businessTime.ts`.
 - **Cancelar/editar**: cliente só nos próprios agendamentos e com ≥ 24h (constante `CANCEL_MIN_HOURS`); admin sem restrição de prazo.
 - **Procedimento**: nome único; exclusão é lógica (`is_active=false`).
 - **Erros**: handler global devolve `{ message }`; erros não-`AppError` viram 500 genérico.
@@ -165,7 +168,4 @@ Rotas públicas (sem auth) usam `rateLimiter` → `validateSchema`.
 
 - Formato de resposta dos controllers varia (`{ createUser }` vs objeto direto em `recoveryPassword`).
 - Pasta `schemas/users` (plural) vs `app/user` (singular).
-- Indentação e uso de ponto e vírgula diferem entre arquivos (`user.*` vs `procedure.*`).
-- `UserService` mistura `import { compare }` e `import bcrypt`.
-- Nome do parâmetro do repository com inicial maiúscula em `AppointmentService` (`ProcedureRepository`).
-- `resetPasswordSchema` valida só `params.token`, mas o controller lê `token` do `body`.
+- Método `CreateNewUser` com inicial maiúscula (demais métodos em camelCase).

@@ -1,15 +1,13 @@
 import { z } from "zod";
 
 export const newScheduleBlockSchema = z.object({
-  body: z.object({
-    start_time: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, {
-      message:
-        "Formato de horário inválido. Use o padrão HH:MM (00:00 às 23:59).",
+  body: z
+    .object({
+      start_time: z.iso.datetime("Formato de data inválido"),
+      end_time: z.iso.datetime("Formato de data inválido"),
+      reason: z.string().min(1, { message: "O motivo é obrigatório." }),
+    })
+    .refine((data) => new Date(data.start_time) < new Date(data.end_time), {
+      message: "O início do bloqueio deve ser anterior ao término.",
     }),
-    end_time: z.string().regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/, {
-      message:
-        "Formato de horário inválido. Use o padrão HH:MM (00:00 às 23:59).",
-    }),
-    reason: z.string().min(1, { message: "O motivo é obrigatório." }),
-  }),
 });

@@ -1,3 +1,4 @@
+import { hash } from "bcrypt";
 import prismaClient from "../src/prisma/index";
 
 async function main() {
@@ -14,12 +15,17 @@ async function main() {
     skipDuplicates: true, // não quebra se já existir
   });
 
-  await prismaClient.users.create({
-    data: {
+  // Senha do admin precisa ser guardada como hash bcrypt, igual ao cadastro de usuários
+  const adminPasswordHash = await hash("admin1q2w3e", 10);
+
+  await prismaClient.users.upsert({
+    where: { email: "adminsalao@gmail.com" },
+    update: {},
+    create: {
       name: "Administrador",
       email: "adminsalao@gmail.com",
       phone: "99999999999",
-      password_hash: "admin1q2w3e",
+      password_hash: adminPasswordHash,
       role: "ADMIN",
     },
   });
