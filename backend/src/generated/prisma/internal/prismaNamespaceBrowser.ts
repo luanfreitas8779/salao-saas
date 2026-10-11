@@ -110,7 +110,8 @@ export const AppointmentsScalarFieldEnum = {
   start_time: 'start_time',
   end_time: 'end_time',
   observation: 'observation',
-  status: 'status'
+  status: 'status',
+  createdAt: 'createdAt'
 } as const
 
 export type AppointmentsScalarFieldEnum = (typeof AppointmentsScalarFieldEnum)[keyof typeof AppointmentsScalarFieldEnum]
@@ -120,7 +121,8 @@ export const Schedule_blocksScalarFieldEnum = {
   id: 'id',
   start_time: 'start_time',
   end_time: 'end_time',
-  reason: 'reason'
+  reason: 'reason',
+  createdAt: 'createdAt'
 } as const
 
 export type Schedule_blocksScalarFieldEnum = (typeof Schedule_blocksScalarFieldEnum)[keyof typeof Schedule_blocksScalarFieldEnum]

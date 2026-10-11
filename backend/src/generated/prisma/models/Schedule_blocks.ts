@@ -29,6 +29,7 @@ export type Schedule_blocksMinAggregateOutputType = {
   start_time: Date | null
   end_time: Date | null
   reason: string | null
+  createdAt: Date | null
 }
 
 export type Schedule_blocksMaxAggregateOutputType = {
@@ -36,6 +37,7 @@ export type Schedule_blocksMaxAggregateOutputType = {
   start_time: Date | null
   end_time: Date | null
   reason: string | null
+  createdAt: Date | null
 }
 
 export type Schedule_blocksCountAggregateOutputType = {
@@ -43,6 +45,7 @@ export type Schedule_blocksCountAggregateOutputType = {
   start_time: number
   end_time: number
   reason: number
+  createdAt: number
   _all: number
 }
 
@@ -52,6 +55,7 @@ export type Schedule_blocksMinAggregateInputType = {
   start_time?: true
   end_time?: true
   reason?: true
+  createdAt?: true
 }
 
 export type Schedule_blocksMaxAggregateInputType = {
@@ -59,6 +63,7 @@ export type Schedule_blocksMaxAggregateInputType = {
   start_time?: true
   end_time?: true
   reason?: true
+  createdAt?: true
 }
 
 export type Schedule_blocksCountAggregateInputType = {
@@ -66,6 +71,7 @@ export type Schedule_blocksCountAggregateInputType = {
   start_time?: true
   end_time?: true
   reason?: true
+  createdAt?: true
   _all?: true
 }
 
@@ -146,6 +152,7 @@ export type Schedule_blocksGroupByOutputType = {
   start_time: Date
   end_time: Date
   reason: string | null
+  createdAt: Date
   _count: Schedule_blocksCountAggregateOutputType | null
   _min: Schedule_blocksMinAggregateOutputType | null
   _max: Schedule_blocksMaxAggregateOutputType | null
@@ -174,6 +181,7 @@ export type Schedule_blocksWhereInput = {
   start_time?: Prisma.DateTimeFilter<"Schedule_blocks"> | Date | string
   end_time?: Prisma.DateTimeFilter<"Schedule_blocks"> | Date | string
   reason?: Prisma.StringNullableFilter<"Schedule_blocks"> | string | null
+  createdAt?: Prisma.DateTimeFilter<"Schedule_blocks"> | Date | string
 }
 
 export type Schedule_blocksOrderByWithRelationInput = {
@@ -181,6 +189,7 @@ export type Schedule_blocksOrderByWithRelationInput = {
   start_time?: Prisma.SortOrder
   end_time?: Prisma.SortOrder
   reason?: Prisma.SortOrderInput | Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
 }
 
 export type Schedule_blocksWhereUniqueInput = Prisma.AtLeast<{
@@ -191,6 +200,7 @@ export type Schedule_blocksWhereUniqueInput = Prisma.AtLeast<{
   start_time?: Prisma.DateTimeFilter<"Schedule_blocks"> | Date | string
   end_time?: Prisma.DateTimeFilter<"Schedule_blocks"> | Date | string
   reason?: Prisma.StringNullableFilter<"Schedule_blocks"> | string | null
+  createdAt?: Prisma.DateTimeFilter<"Schedule_blocks"> | Date | string
 }, "id">
 
 export type Schedule_blocksOrderByWithAggregationInput = {
@@ -198,6 +208,7 @@ export type Schedule_blocksOrderByWithAggregationInput = {
   start_time?: Prisma.SortOrder
   end_time?: Prisma.SortOrder
   reason?: Prisma.SortOrderInput | Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
   _count?: Prisma.Schedule_blocksCountOrderByAggregateInput
   _max?: Prisma.Schedule_blocksMaxOrderByAggregateInput
   _min?: Prisma.Schedule_blocksMinOrderByAggregateInput
@@ -211,6 +222,7 @@ export type Schedule_blocksScalarWhereWithAggregatesInput = {
   start_time?: Prisma.DateTimeWithAggregatesFilter<"Schedule_blocks"> | Date | string
   end_time?: Prisma.DateTimeWithAggregatesFilter<"Schedule_blocks"> | Date | string
   reason?: Prisma.StringNullableWithAggregatesFilter<"Schedule_blocks"> | string | null
+  createdAt?: Prisma.DateTimeWithAggregatesFilter<"Schedule_blocks"> | Date | string
 }
 
 export type Schedule_blocksCreateInput = {
@@ -218,6 +230,7 @@ export type Schedule_blocksCreateInput = {
   start_time: Date | string
   end_time: Date | string
   reason?: string | null
+  createdAt?: Date | string
 }
 
 export type Schedule_blocksUncheckedCreateInput = {
@@ -225,6 +238,7 @@ export type Schedule_blocksUncheckedCreateInput = {
   start_time: Date | string
   end_time: Date | string
   reason?: string | null
+  createdAt?: Date | string
 }
 
 export type Schedule_blocksUpdateInput = {
@@ -232,6 +246,7 @@ export type Schedule_blocksUpdateInput = {
   start_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   reason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type Schedule_blocksUncheckedUpdateInput = {
@@ -239,6 +254,7 @@ export type Schedule_blocksUncheckedUpdateInput = {
   start_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   reason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type Schedule_blocksCreateManyInput = {
@@ -246,6 +262,7 @@ export type Schedule_blocksCreateManyInput = {
   start_time: Date | string
   end_time: Date | string
   reason?: string | null
+  createdAt?: Date | string
 }
 
 export type Schedule_blocksUpdateManyMutationInput = {
@@ -253,6 +270,7 @@ export type Schedule_blocksUpdateManyMutationInput = {
   start_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   reason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type Schedule_blocksUncheckedUpdateManyInput = {
@@ -260,6 +278,7 @@ export type Schedule_blocksUncheckedUpdateManyInput = {
   start_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   reason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type Schedule_blocksCountOrderByAggregateInput = {
@@ -267,6 +286,7 @@ export type Schedule_blocksCountOrderByAggregateInput = {
   start_time?: Prisma.SortOrder
   end_time?: Prisma.SortOrder
   reason?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
 }
 
 export type Schedule_blocksMaxOrderByAggregateInput = {
@@ -274,6 +294,7 @@ export type Schedule_blocksMaxOrderByAggregateInput = {
   start_time?: Prisma.SortOrder
   end_time?: Prisma.SortOrder
   reason?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
 }
 
 export type Schedule_blocksMinOrderByAggregateInput = {
@@ -281,6 +302,7 @@ export type Schedule_blocksMinOrderByAggregateInput = {
   start_time?: Prisma.SortOrder
   end_time?: Prisma.SortOrder
   reason?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
 }
 
 
@@ -290,6 +312,7 @@ export type Schedule_blocksSelect<ExtArgs extends runtime.Types.Extensions.Inter
   start_time?: boolean
   end_time?: boolean
   reason?: boolean
+  createdAt?: boolean
 }, ExtArgs["result"]["schedule_blocks"]>
 
 export type Schedule_blocksSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -297,6 +320,7 @@ export type Schedule_blocksSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   start_time?: boolean
   end_time?: boolean
   reason?: boolean
+  createdAt?: boolean
 }, ExtArgs["result"]["schedule_blocks"]>
 
 export type Schedule_blocksSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -304,6 +328,7 @@ export type Schedule_blocksSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   start_time?: boolean
   end_time?: boolean
   reason?: boolean
+  createdAt?: boolean
 }, ExtArgs["result"]["schedule_blocks"]>
 
 export type Schedule_blocksSelectScalar = {
@@ -311,9 +336,10 @@ export type Schedule_blocksSelectScalar = {
   start_time?: boolean
   end_time?: boolean
   reason?: boolean
+  createdAt?: boolean
 }
 
-export type Schedule_blocksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "start_time" | "end_time" | "reason", ExtArgs["result"]["schedule_blocks"]>
+export type Schedule_blocksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "start_time" | "end_time" | "reason" | "createdAt", ExtArgs["result"]["schedule_blocks"]>
 
 export type $Schedule_blocksPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Schedule_blocks"
@@ -323,6 +349,7 @@ export type $Schedule_blocksPayload<ExtArgs extends runtime.Types.Extensions.Int
     start_time: Date
     end_time: Date
     reason: string | null
+    createdAt: Date
   }, ExtArgs["result"]["schedule_blocks"]>
   composites: {}
 }
@@ -750,6 +777,7 @@ export interface Schedule_blocksFieldRefs {
   readonly start_time: Prisma.FieldRef<"Schedule_blocks", 'DateTime'>
   readonly end_time: Prisma.FieldRef<"Schedule_blocks", 'DateTime'>
   readonly reason: Prisma.FieldRef<"Schedule_blocks", 'String'>
+  readonly createdAt: Prisma.FieldRef<"Schedule_blocks", 'DateTime'>
 }
     
 

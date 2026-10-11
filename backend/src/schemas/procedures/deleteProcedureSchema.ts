@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const deleteProcedureSchema = z.object({
-  params: z.object({
+  body: z.object({
     id: z.string(),
   }),
 });
