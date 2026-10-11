@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { InternalServerError } from "../errors/app-error";
+import { InternalServerError, ValidationError } from "../errors/app-error";
 import { ZodError, ZodType } from "zod";
 
 interface RequestSchema {
@@ -10,7 +10,7 @@ interface RequestSchema {
 
 export const validateSchema =
   (schema: ZodType) =>
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, _: Response, next: NextFunction) => {
     try {
       const parsed = (await schema.parseAsync({
         body: req.body,
@@ -25,13 +25,12 @@ export const validateSchema =
       return next();
     } catch (error) {
       if (error instanceof ZodError) {
-        return res.status(400).json({
-          error: "Erro de validação",
-          details: error.issues.map((issue) => ({
+        throw new ValidationError(
+          error.issues.map((issue) => ({
             campo: issue.path.slice(1).join("."),
             message: issue.message,
           })),
-        });
+        );
       }
 
       throw new InternalServerError("Erro interno do servidor");

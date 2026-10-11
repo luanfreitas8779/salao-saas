@@ -1,6 +1,6 @@
 import { compare } from "bcrypt";
 import { sign } from "jsonwebtoken";
-import { BadRequestError, InternalServerError, NotFoundError } from "../../errors/app-error";
+import { BadRequestError, ConflictError, InternalServerError, NotFoundError, UnauthorizedError } from "../../errors/app-error";
 import { UserRepository } from "./user.repository";
 import bcrypt from "bcrypt";
 import { sendMail } from "../../config/mailer";
@@ -38,19 +38,19 @@ export class UserService {
 
     if (!user) {
       await compare(password, "$2b$10$FakeHashToPreventTimingAttacksVariables");
-      throw new BadRequestError("Email ou senha incorretos");
+      throw new UnauthorizedError("Email ou senha incorretos");
     }
 
     //Verificar se a senha está correta
     const passwordMatch = await compare(password, user.password_hash);
 
     if (!passwordMatch) {
-      throw new BadRequestError("Email ou senha incorretos");
+      throw new UnauthorizedError("Email ou senha incorretos");
     }
 
     //Gerar TOKEN JWT
     if (!process.env.JWT_SECRET) {
-      throw new NotFoundError("CHAVE DE CRIPTOGRAFIA NÃO ENCONTRADA");
+      throw new InternalServerError("CHAVE DE CRIPTOGRAFIA NÃO ENCONTRADA");
     }
     const token = sign(
       { role: user.role },
@@ -82,11 +82,11 @@ export class UserService {
     ]);
 
     if (emailExists) {
-      throw new BadRequestError("Já existe um usuário com este email!");
+      throw new ConflictError("Já existe um usuário com este email!");
     }
 
     if (phoneExists) {
-      throw new BadRequestError("Já existe um usuário com este número de telefone!");
+      throw new ConflictError("Já existe um usuário com este número de telefone!");
     }
 
     const password_hash = await bcrypt.hash(password, 10);
@@ -207,7 +207,7 @@ export class UserService {
       if (phone) {
         const phoneOwner = await this.repository.findUserByPhone({ phone });
         if (phoneOwner && phoneOwner.id !== id) {
-          throw new BadRequestError(
+          throw new ConflictError(
             "Já existe um usuário com este número de telefone!",
           );
         }

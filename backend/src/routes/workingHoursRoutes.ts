@@ -9,10 +9,10 @@ const routes = Router();
 const workingHoursController = makeWorkingHoursController();
 
 routes.put(
-  "/update",
-  validateSchema(workingHoursSchema),
+  "/",
   isAuthenticated,
   isAdmin,
+  validateSchema(workingHoursSchema),
   workingHoursController.handle,
 );
 

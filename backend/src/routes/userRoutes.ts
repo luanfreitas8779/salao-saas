@@ -29,14 +29,14 @@ routes.post(
 );
 
 routes.post(
-  "/auth/recoverypassword",
+  "/auth/recovery-password",
   recoveryPasswordLimiter,
   validateSchema(recoveryPasswordSchema),
   userController.recoveryPassword,
 );
 
 routes.post(
-  "/auth/resetpassword/:token",
+  "/auth/reset-password/:token",
   validateSchema(resetPasswordSchema),
   userController.resetPassword,
 );

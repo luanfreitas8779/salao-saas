@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { BadRequestError } from "../errors/app-error";
+import { UnauthorizedError } from "../errors/app-error";
 import { Request, Response, NextFunction } from "express";
 
 interface Payload {
@@ -15,7 +15,7 @@ export function isAuthenticated(
   const authToken = req.headers.authorization;
 
   if (!authToken) {
-    throw new BadRequestError("Token não informado");
+    throw new UnauthorizedError("Token não informado");
   }
 
   const [, token] = authToken!.split(" ");
@@ -31,7 +31,6 @@ export function isAuthenticated(
 
     next();
   } catch (err) {
-    throw new BadRequestError("Autenticação falhou, faça login novamente");
-    return;
+    throw new UnauthorizedError("Autenticação falhou, faça login novamente");
   }
 }

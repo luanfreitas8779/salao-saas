@@ -3,7 +3,7 @@ import { validateSchema } from "../middlewares/validateSchema";
 import { appointmentAvailabilitySchema } from "../schemas/appointments/appointmentAvailabilitySchema";
 import { isAuthenticated } from "../middlewares/isAuthenticatedMiddleware";
 import { createAppointmentSchema } from "../schemas/appointments/createAppointmentSchema";
-import { makeAppointmentController } from "../app/appointments/appointments.factory";
+import { makeAppointmentController } from "../app/appointments/appointment.factory";
 import { appointmentBoardSchema } from "../schemas/appointments/appointmentBoardSchema";
 import { appointmentIdParamSchema } from "../schemas/appointments/appointmentIdParamSchema";
 import { updateAppointmentSchema } from "../schemas/appointments/updateAppointmentSchema";
@@ -14,15 +14,15 @@ const appointmentController = makeAppointmentController();
 
 routes.get(
   "/slots",
-  validateSchema(appointmentAvailabilitySchema),
   isAuthenticated,
+  validateSchema(appointmentAvailabilitySchema),
   appointmentController.availableTimes,
 );
 
 routes.get(
   "/availability",
-  validateSchema(appointmentAvailabilitySchema),
   isAuthenticated,
+  validateSchema(appointmentAvailabilitySchema),
   appointmentController.availableTimes,
 );
 

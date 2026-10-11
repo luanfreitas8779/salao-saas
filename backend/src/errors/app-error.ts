@@ -37,6 +37,20 @@ export class ConflictError extends AppError {
     }
 }
 
+export class TooManyRequestsError extends AppError {
+    constructor(message: string) {
+        super(message, 429)
+    }
+}
+
+export class ValidationError extends AppError {
+    public readonly details: { campo: string; message: string }[];
+    constructor(details: { campo: string; message: string }[]) {
+        super("Erro de validação", 400)
+        this.details = details;
+    }
+}
+
 export class InternalServerError extends AppError {
     constructor(message: string) {
         super(message, 500)

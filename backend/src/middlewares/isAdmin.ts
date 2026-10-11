@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express"
-import { UnauthorizedError } from "../errors/app-error";
+import { ForbiddenError, UnauthorizedError } from "../errors/app-error";
 import prismaClient from "../prisma/index";
 
 export async function isAdmin(
@@ -26,7 +26,7 @@ export async function isAdmin(
   req.user_role = user.role;
 
   if (user.role !== "ADMIN") {
-    throw new UnauthorizedError("Usuário sem permissão");
+    throw new ForbiddenError("Usuário sem permissão");
   }
 
   next();

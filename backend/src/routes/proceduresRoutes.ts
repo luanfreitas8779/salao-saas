@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { isAuthenticated } from "../middlewares/isAuthenticatedMiddleware";
-import { makeProcedureController } from "../app/procedures/procedures.factory";
+import { makeProcedureController } from "../app/procedures/procedure.factory";
 import { validateSchema } from "../middlewares/validateSchema";
 import { createProcedureSchema } from "../schemas/procedures/createProcedureSchema";
 import { editProcedureSchema } from "../schemas/procedures/editProcedureSchema";
@@ -20,26 +20,26 @@ routes.get(
 );
 
 routes.post(
-  "/new",
-  validateSchema(createProcedureSchema),
+  "/",
   isAuthenticated,
   isAdmin,
+  validateSchema(createProcedureSchema),
   procedureController.createNewProcedure,
 );
 
 routes.put(
-  "/edit/",
-  validateSchema(editProcedureSchema),
+  "/",
   isAuthenticated,
   isAdmin,
+  validateSchema(editProcedureSchema),
   procedureController.editProcedure,
 );
 
 routes.delete(
-  "/delete",
-  validateSchema(deleteProcedureSchema),
+  "/",
   isAuthenticated,
   isAdmin,
+  validateSchema(deleteProcedureSchema),
   procedureController.deleteProcedure,
 );
 
