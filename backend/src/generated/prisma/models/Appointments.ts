@@ -32,6 +32,7 @@ export type AppointmentsMinAggregateOutputType = {
   end_time: Date | null
   observation: string | null
   status: $Enums.Status | null
+  createdAt: Date | null
 }
 
 export type AppointmentsMaxAggregateOutputType = {
@@ -42,6 +43,7 @@ export type AppointmentsMaxAggregateOutputType = {
   end_time: Date | null
   observation: string | null
   status: $Enums.Status | null
+  createdAt: Date | null
 }
 
 export type AppointmentsCountAggregateOutputType = {
@@ -52,6 +54,7 @@ export type AppointmentsCountAggregateOutputType = {
   end_time: number
   observation: number
   status: number
+  createdAt: number
   _all: number
 }
 
@@ -64,6 +67,7 @@ export type AppointmentsMinAggregateInputType = {
   end_time?: true
   observation?: true
   status?: true
+  createdAt?: true
 }
 
 export type AppointmentsMaxAggregateInputType = {
@@ -74,6 +78,7 @@ export type AppointmentsMaxAggregateInputType = {
   end_time?: true
   observation?: true
   status?: true
+  createdAt?: true
 }
 
 export type AppointmentsCountAggregateInputType = {
@@ -84,6 +89,7 @@ export type AppointmentsCountAggregateInputType = {
   end_time?: true
   observation?: true
   status?: true
+  createdAt?: true
   _all?: true
 }
 
@@ -167,6 +173,7 @@ export type AppointmentsGroupByOutputType = {
   end_time: Date
   observation: string | null
   status: $Enums.Status
+  createdAt: Date
   _count: AppointmentsCountAggregateOutputType | null
   _min: AppointmentsMinAggregateOutputType | null
   _max: AppointmentsMaxAggregateOutputType | null
@@ -198,6 +205,7 @@ export type AppointmentsWhereInput = {
   end_time?: Prisma.DateTimeFilter<"Appointments"> | Date | string
   observation?: Prisma.StringNullableFilter<"Appointments"> | string | null
   status?: Prisma.EnumStatusFilter<"Appointments"> | $Enums.Status
+  createdAt?: Prisma.DateTimeFilter<"Appointments"> | Date | string
   client?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.UsersWhereInput>
   procedure?: Prisma.XOR<Prisma.ProceduresScalarRelationFilter, Prisma.ProceduresWhereInput>
 }
@@ -210,6 +218,7 @@ export type AppointmentsOrderByWithRelationInput = {
   end_time?: Prisma.SortOrder
   observation?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
   client?: Prisma.UsersOrderByWithRelationInput
   procedure?: Prisma.ProceduresOrderByWithRelationInput
 }
@@ -225,6 +234,7 @@ export type AppointmentsWhereUniqueInput = Prisma.AtLeast<{
   end_time?: Prisma.DateTimeFilter<"Appointments"> | Date | string
   observation?: Prisma.StringNullableFilter<"Appointments"> | string | null
   status?: Prisma.EnumStatusFilter<"Appointments"> | $Enums.Status
+  createdAt?: Prisma.DateTimeFilter<"Appointments"> | Date | string
   client?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.UsersWhereInput>
   procedure?: Prisma.XOR<Prisma.ProceduresScalarRelationFilter, Prisma.ProceduresWhereInput>
 }, "id">
@@ -237,6 +247,7 @@ export type AppointmentsOrderByWithAggregationInput = {
   end_time?: Prisma.SortOrder
   observation?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
   _count?: Prisma.AppointmentsCountOrderByAggregateInput
   _max?: Prisma.AppointmentsMaxOrderByAggregateInput
   _min?: Prisma.AppointmentsMinOrderByAggregateInput
@@ -253,6 +264,7 @@ export type AppointmentsScalarWhereWithAggregatesInput = {
   end_time?: Prisma.DateTimeWithAggregatesFilter<"Appointments"> | Date | string
   observation?: Prisma.StringNullableWithAggregatesFilter<"Appointments"> | string | null
   status?: Prisma.EnumStatusWithAggregatesFilter<"Appointments"> | $Enums.Status
+  createdAt?: Prisma.DateTimeWithAggregatesFilter<"Appointments"> | Date | string
 }
 
 export type AppointmentsCreateInput = {
@@ -261,6 +273,7 @@ export type AppointmentsCreateInput = {
   end_time: Date | string
   observation?: string | null
   status?: $Enums.Status
+  createdAt?: Date | string
   client: Prisma.UsersCreateNestedOneWithoutAppointmentsInput
   procedure: Prisma.ProceduresCreateNestedOneWithoutAppointmentsInput
 }
@@ -273,6 +286,7 @@ export type AppointmentsUncheckedCreateInput = {
   end_time: Date | string
   observation?: string | null
   status?: $Enums.Status
+  createdAt?: Date | string
 }
 
 export type AppointmentsUpdateInput = {
@@ -281,6 +295,7 @@ export type AppointmentsUpdateInput = {
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   observation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.UsersUpdateOneRequiredWithoutAppointmentsNestedInput
   procedure?: Prisma.ProceduresUpdateOneRequiredWithoutAppointmentsNestedInput
 }
@@ -293,6 +308,7 @@ export type AppointmentsUncheckedUpdateInput = {
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   observation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type AppointmentsCreateManyInput = {
@@ -303,6 +319,7 @@ export type AppointmentsCreateManyInput = {
   end_time: Date | string
   observation?: string | null
   status?: $Enums.Status
+  createdAt?: Date | string
 }
 
 export type AppointmentsUpdateManyMutationInput = {
@@ -311,6 +328,7 @@ export type AppointmentsUpdateManyMutationInput = {
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   observation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type AppointmentsUncheckedUpdateManyInput = {
@@ -321,6 +339,7 @@ export type AppointmentsUncheckedUpdateManyInput = {
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   observation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type AppointmentsListRelationFilter = {
@@ -341,6 +360,7 @@ export type AppointmentsCountOrderByAggregateInput = {
   end_time?: Prisma.SortOrder
   observation?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
 }
 
 export type AppointmentsMaxOrderByAggregateInput = {
@@ -351,6 +371,7 @@ export type AppointmentsMaxOrderByAggregateInput = {
   end_time?: Prisma.SortOrder
   observation?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
 }
 
 export type AppointmentsMinOrderByAggregateInput = {
@@ -361,6 +382,7 @@ export type AppointmentsMinOrderByAggregateInput = {
   end_time?: Prisma.SortOrder
   observation?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
 }
 
 export type AppointmentsCreateNestedManyWithoutClientInput = {
@@ -461,6 +483,7 @@ export type AppointmentsCreateWithoutClientInput = {
   end_time: Date | string
   observation?: string | null
   status?: $Enums.Status
+  createdAt?: Date | string
   procedure: Prisma.ProceduresCreateNestedOneWithoutAppointmentsInput
 }
 
@@ -471,6 +494,7 @@ export type AppointmentsUncheckedCreateWithoutClientInput = {
   end_time: Date | string
   observation?: string | null
   status?: $Enums.Status
+  createdAt?: Date | string
 }
 
 export type AppointmentsCreateOrConnectWithoutClientInput = {
@@ -510,6 +534,7 @@ export type AppointmentsScalarWhereInput = {
   end_time?: Prisma.DateTimeFilter<"Appointments"> | Date | string
   observation?: Prisma.StringNullableFilter<"Appointments"> | string | null
   status?: Prisma.EnumStatusFilter<"Appointments"> | $Enums.Status
+  createdAt?: Prisma.DateTimeFilter<"Appointments"> | Date | string
 }
 
 export type AppointmentsCreateWithoutProcedureInput = {
@@ -518,6 +543,7 @@ export type AppointmentsCreateWithoutProcedureInput = {
   end_time: Date | string
   observation?: string | null
   status?: $Enums.Status
+  createdAt?: Date | string
   client: Prisma.UsersCreateNestedOneWithoutAppointmentsInput
 }
 
@@ -528,6 +554,7 @@ export type AppointmentsUncheckedCreateWithoutProcedureInput = {
   end_time: Date | string
   observation?: string | null
   status?: $Enums.Status
+  createdAt?: Date | string
 }
 
 export type AppointmentsCreateOrConnectWithoutProcedureInput = {
@@ -563,6 +590,7 @@ export type AppointmentsCreateManyClientInput = {
   end_time: Date | string
   observation?: string | null
   status?: $Enums.Status
+  createdAt?: Date | string
 }
 
 export type AppointmentsUpdateWithoutClientInput = {
@@ -571,6 +599,7 @@ export type AppointmentsUpdateWithoutClientInput = {
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   observation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   procedure?: Prisma.ProceduresUpdateOneRequiredWithoutAppointmentsNestedInput
 }
 
@@ -581,6 +610,7 @@ export type AppointmentsUncheckedUpdateWithoutClientInput = {
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   observation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type AppointmentsUncheckedUpdateManyWithoutClientInput = {
@@ -590,6 +620,7 @@ export type AppointmentsUncheckedUpdateManyWithoutClientInput = {
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   observation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type AppointmentsCreateManyProcedureInput = {
@@ -599,6 +630,7 @@ export type AppointmentsCreateManyProcedureInput = {
   end_time: Date | string
   observation?: string | null
   status?: $Enums.Status
+  createdAt?: Date | string
 }
 
 export type AppointmentsUpdateWithoutProcedureInput = {
@@ -607,6 +639,7 @@ export type AppointmentsUpdateWithoutProcedureInput = {
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   observation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   client?: Prisma.UsersUpdateOneRequiredWithoutAppointmentsNestedInput
 }
 
@@ -617,6 +650,7 @@ export type AppointmentsUncheckedUpdateWithoutProcedureInput = {
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   observation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type AppointmentsUncheckedUpdateManyWithoutProcedureInput = {
@@ -626,6 +660,7 @@ export type AppointmentsUncheckedUpdateManyWithoutProcedureInput = {
   end_time?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   observation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumStatusFieldUpdateOperationsInput | $Enums.Status
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 
@@ -638,6 +673,7 @@ export type AppointmentsSelect<ExtArgs extends runtime.Types.Extensions.Internal
   end_time?: boolean
   observation?: boolean
   status?: boolean
+  createdAt?: boolean
   client?: boolean | Prisma.UsersDefaultArgs<ExtArgs>
   procedure?: boolean | Prisma.ProceduresDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["appointments"]>
@@ -650,6 +686,7 @@ export type AppointmentsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   end_time?: boolean
   observation?: boolean
   status?: boolean
+  createdAt?: boolean
   client?: boolean | Prisma.UsersDefaultArgs<ExtArgs>
   procedure?: boolean | Prisma.ProceduresDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["appointments"]>
@@ -662,6 +699,7 @@ export type AppointmentsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   end_time?: boolean
   observation?: boolean
   status?: boolean
+  createdAt?: boolean
   client?: boolean | Prisma.UsersDefaultArgs<ExtArgs>
   procedure?: boolean | Prisma.ProceduresDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["appointments"]>
@@ -674,9 +712,10 @@ export type AppointmentsSelectScalar = {
   end_time?: boolean
   observation?: boolean
   status?: boolean
+  createdAt?: boolean
 }
 
-export type AppointmentsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "client_id" | "procedure_id" | "start_time" | "end_time" | "observation" | "status", ExtArgs["result"]["appointments"]>
+export type AppointmentsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "client_id" | "procedure_id" | "start_time" | "end_time" | "observation" | "status" | "createdAt", ExtArgs["result"]["appointments"]>
 export type AppointmentsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.UsersDefaultArgs<ExtArgs>
   procedure?: boolean | Prisma.ProceduresDefaultArgs<ExtArgs>
@@ -704,6 +743,7 @@ export type $AppointmentsPayload<ExtArgs extends runtime.Types.Extensions.Intern
     end_time: Date
     observation: string | null
     status: $Enums.Status
+    createdAt: Date
   }, ExtArgs["result"]["appointments"]>
   composites: {}
 }
@@ -1136,6 +1176,7 @@ export interface AppointmentsFieldRefs {
   readonly end_time: Prisma.FieldRef<"Appointments", 'DateTime'>
   readonly observation: Prisma.FieldRef<"Appointments", 'String'>
   readonly status: Prisma.FieldRef<"Appointments", 'Status'>
+  readonly createdAt: Prisma.FieldRef<"Appointments", 'DateTime'>
 }
     
 

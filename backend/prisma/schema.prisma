@@ -58,6 +58,7 @@ model Appointments {
   end_time DateTime
   observation String?
   status Status @default(SCHEDULED)
+  createdAt DateTime @default(now())
 
   @@map("appointments")
 }
@@ -67,6 +68,7 @@ model Schedule_blocks {
   start_time DateTime
   end_time DateTime
   reason String?
+  createdAt DateTime @default(now())
 
   @@map("schedule_blocks")
 }
@@ -74,7 +76,7 @@ model Schedule_blocks {
 model PasswordResetToken {
   id String @id @default(uuid())
   userId String
-  token_hash String
+  token_hash String @unique
   createdAt DateTime @default(now())
   expiresAt DateTime
   used Boolean @default(false)

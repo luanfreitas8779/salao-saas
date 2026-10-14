@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { InternalServerError } from "../errors/app-error";
 
 export const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -18,6 +19,6 @@ export async function sendMail(to: string, subject: string, html: string) {
     });
     return;
   } catch {
-    throw new Error("Falha ao enviar o email, tente novamente!");
+    throw new InternalServerError("Falha ao enviar o email, tente novamente!");
   }
 }

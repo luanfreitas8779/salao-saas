@@ -5,5 +5,6 @@ export const createAppointmentSchema = z.object({
     start_time: z.iso.datetime("Formato de data inválido"),
     observation: z.string().optional(),
     procedure_id: z.uuid(),
+    client_id: z.uuid().optional(),
   }),
 });
