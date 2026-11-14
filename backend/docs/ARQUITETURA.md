@@ -80,7 +80,7 @@ Prefixo `/api`. Auth = `Authorization: Bearer <JWT>`.
 - **Disponibilidade**: duração do procedimento + expediente do dia + pausa + agendamentos + bloqueios; passo de 30 min; horários já passados não aparecem.
 - **Validação ao agendar/editar**: horário futuro, dia aberto, dentro do expediente, fora da pausa e alinhado à grade de 30 min a partir da abertura (`assertWithinBusinessRules`).
 - **Fuso**: horários do salão são `America/Sao_Paulo` (UTC-3 fixo, sem horário de verão), centralizados em `src/utils/businessTime.ts`.
-- **Cancelar/editar**: cliente só nos próprios agendamentos e com ≥ 24h (constante `CANCEL_MIN_HOURS`); admin sem restrição de prazo.
+- **Cancelar/editar**: cliente só nos próprios agendamentos e com ≥ 24h (constante `MIN_LEAD_TIME_HOURS`); admin sem restrição de prazo.
 - **Procedimento**: nome único; exclusão é lógica (`is_active=false`).
 - **Erros**: handler global devolve `{ message }`; erros não-`AppError` viram 500 genérico.
 

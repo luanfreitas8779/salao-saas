@@ -95,16 +95,16 @@ export class UserService {
     phone,
     password,
   }: CreateNewUserProps): Promise<string> {
-    const [emailExists, phoneExists] = await Promise.all([
+    const [userWithEmail, userWithPhone] = await Promise.all([
       this.repository.findUserByEmail({ email: email }),
       this.repository.findUserByPhone({ phone: phone }),
     ]);
 
-    if (emailExists) {
+    if (userWithEmail) {
       throw new ConflictError("Já existe um usuário com este email!");
     }
 
-    if (phoneExists) {
+    if (userWithPhone) {
       throw new ConflictError(
         "Já existe um usuário com este número de telefone!",
       );
@@ -127,9 +127,9 @@ export class UserService {
     const genericMessage =
       "Se esse email existir, enviaremos o link de recuperação.";
 
-    const userExists = await this.repository.findUserByEmail({ email: email });
+    const user = await this.repository.findUserByEmail({ email: email });
 
-    if (!userExists) {
+    if (!user) {
       return genericMessage;
     }
 
@@ -140,13 +140,13 @@ export class UserService {
       .digest("hex");
     const expiresAt = new Date(Date.now() + 1000 * 60 * 15); // 15 min
 
-    const newToken = await this.repository.createPasswordResetToken({
-      userId: userExists.id,
+    const resetToken = await this.repository.createPasswordResetToken({
+      userId: user.id,
       token_hash: hashedToken,
       expiresAt: expiresAt,
     });
 
-    if (!newToken) {
+    if (!resetToken) {
       throw new InternalServerError(
         "Erro ao criar token de recuperação de senha.",
       );
@@ -154,9 +154,9 @@ export class UserService {
 
     try {
       await sendMail(
-        userExists.email,
+        user.email,
         "Recuperação de senha",
-        `<h2> Olá ${userExists.name}</h2>
+        `<h2> Olá ${user.name}</h2>
         <p>Você solicitou redefinição de senha. Clique no link abaixo para redefinir sua senha!</p>
         <a href="http://localhost:3333/auth/recoverypassword/${rawToken}">👉 Redefinir minha senha!</a>
         <p>Este link expira em 15 minutos!</p>`,
@@ -182,35 +182,35 @@ export class UserService {
 
     //Gera o hash da senha antes de iniciar transações no banco para
     //diminuir intervalo entre tratativas no banco, evitando dupla solicitação com mesmo token
-    const newPasswordHashed = await hash(newPassword, 10);
+    const newPasswordHash = await hash(newPassword, 10);
 
     //Faz update no used para true e valida se existe na mesma chamada
     //Por ser a primeira coisa feita, isso vai evitar dupla solicitação
-    const tokenUpdate = await this.repository.updatePasswordResetToken({
+    const usedToken = await this.repository.updatePasswordResetToken({
       hashedToken: hashedToken,
     });
 
     // Valida o token
-    if (!tokenUpdate) {
+    if (!usedToken) {
       throw new BadRequestError("Token inválido ou expirado!");
     }
 
     //Agora sim coleta os dados do token de forma segura com o findFirst
-    const tokenData = await this.repository.findPasswordResetToken({
+    const resetToken = await this.repository.findPasswordResetToken({
       hashedToken: hashedToken,
     });
 
-    if (!tokenData) {
+    if (!resetToken) {
       throw new BadRequestError("Usuário não encontrado para este token.");
     }
 
     //Atualiza a senha no banco de dados
-    const updatePassword = await this.repository.updateUserPassword({
-      userId: tokenData.userId,
-      newPasswordHash: newPasswordHashed,
+    const updatedUser = await this.repository.updateUserPassword({
+      userId: resetToken.userId,
+      newPasswordHash: newPasswordHash,
     });
 
-    if (!updatePassword) {
+    if (!updatedUser) {
       throw new InternalServerError("Erro ao atualizar a senha do usuário.");
     }
 

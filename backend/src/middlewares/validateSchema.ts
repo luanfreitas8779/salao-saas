@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { InternalServerError, ValidationError } from "../errors/app-error";
 import { ZodError, ZodType } from "zod";
 
-interface RequestSchema {
+interface ValidatedRequest {
   body?: any;
   query?: any;
   params?: any;
@@ -12,15 +12,15 @@ export const validateSchema =
   (schema: ZodType) =>
   async (req: Request, _: Response, next: NextFunction) => {
     try {
-      const parsed = (await schema.parseAsync({
+      const validated = (await schema.parseAsync({
         body: req.body,
         query: req.query,
         params: req.params,
-      })) as RequestSchema;
+      })) as ValidatedRequest;
 
-      if (parsed.body) req.body = parsed.body;
-      if (parsed.query) req.query = parsed.query;
-      if (parsed.params) req.params = parsed.params;
+      if (validated.body) req.body = validated.body;
+      if (validated.query) req.query = validated.query;
+      if (validated.params) req.params = validated.params;
 
       return next();
     } catch (error) {

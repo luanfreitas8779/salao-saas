@@ -45,7 +45,7 @@ describe("ScheduleBlocksService.createScheduleBlock", () => {
       end_time: dados.end_time,
     });
     expect(appointmentRepository.findConflictingAppointment).toHaveBeenCalledWith({
-      startHour: dados.start_time,
+      start_time: dados.start_time,
       end_time: dados.end_time,
     });
     expect(scheduleBlocksRepository.createNewScheduleBlock).toHaveBeenCalledWith(dados);

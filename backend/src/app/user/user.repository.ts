@@ -35,7 +35,7 @@ interface FindPasswordResetTokenProps {
   hashedToken: string;
 }
 
-interface UpdateResetTokenProps {
+interface UpdatePasswordResetTokenProps {
   hashedToken: string;
 }
 
@@ -109,15 +109,15 @@ export class UserRepository {
   async findPasswordResetToken({
     hashedToken,
   }: FindPasswordResetTokenProps): Promise<PasswordResetToken | null> {
-    const tokenData = await prismaClient.passwordResetToken.findUnique({
+    const resetToken = await prismaClient.passwordResetToken.findUnique({
       where: { token_hash: hashedToken },
     });
-    return tokenData;
+    return resetToken;
   }
 
   async updatePasswordResetToken({
     hashedToken,
-  }: UpdateResetTokenProps): Promise<PasswordResetToken> {
+  }: UpdatePasswordResetTokenProps): Promise<PasswordResetToken> {
     const updatedToken = await prismaClient.passwordResetToken.update({
       where: { token_hash: hashedToken },
       data: { used: true },

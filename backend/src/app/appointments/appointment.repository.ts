@@ -2,18 +2,18 @@ import prismaClient from "../../prisma";
 import { Appointments, Prisma } from "../../generated/prisma/client";
 import { ConflictError } from "../../errors/app-error";
 
-interface getAppointmentsOnDayProps {
+interface GetAppointmentsOnDayProps {
   startDay: Date;
   endDay: Date;
 }
 
-interface hasConflictProps {
+interface FindConflictingAppointmentProps {
+  start_time: Date;
   end_time: Date;
-  startHour: Date;
   excludeId?: string;
 }
 
-interface getAppointmentsOnDayReturn {
+interface AppointmentPeriod {
   start_time: Date;
   end_time: Date;
 }
@@ -31,7 +31,7 @@ interface BoardRangeProps {
   endDate: Date;
 }
 
-interface UpdateAppointmentTimesProps {
+interface UpdateAppointmentProps {
   id: string;
   start_time: Date;
   end_time: Date;
@@ -39,7 +39,7 @@ interface UpdateAppointmentTimesProps {
   procedure_id: string;
 }
 
-const appointmentDetails = {
+const appointmentRelations = {
   procedure: {
     select: {
       id: true,
@@ -70,7 +70,7 @@ export class AppointmentRepository {
   async getAppointmentsOnDay({
     startDay,
     endDay,
-  }: getAppointmentsOnDayProps): Promise<getAppointmentsOnDayReturn[]> {
+  }: GetAppointmentsOnDayProps): Promise<AppointmentPeriod[]> {
     const appointments = await prismaClient.appointments.findMany({
       where: {
         status: { not: "CANCELLED" },
@@ -89,15 +89,15 @@ export class AppointmentRepository {
   }
 
   async findConflictingAppointment({
+    start_time,
     end_time,
-    startHour,
     excludeId,
-  }: hasConflictProps): Promise<Appointments | null> {
+  }: FindConflictingAppointmentProps): Promise<Appointments | null> {
     return await prismaClient.appointments.findFirst({
       where: {
         status: { not: "CANCELLED" },
         start_time: { lt: end_time },
-        end_time: { gt: startHour },
+        end_time: { gt: start_time },
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },
     });
@@ -113,7 +113,7 @@ export class AppointmentRepository {
     try {
       return await prismaClient.$transaction(
         async (tx) => {
-          const hasConflict = await tx.appointments.findFirst({
+          const conflictingAppointment = await tx.appointments.findFirst({
             where: {
               status: { not: "CANCELLED" },
               start_time: { lt: end_time },
@@ -121,7 +121,7 @@ export class AppointmentRepository {
             },
           });
 
-          if (hasConflict) {
+          if (conflictingAppointment) {
             throw new ConflictError(
               "Erro: Já existe um agendamento neste horário, atualize a página e tente novamente!",
             );
@@ -135,7 +135,7 @@ export class AppointmentRepository {
               client_id,
               procedure_id,
             },
-            include: appointmentDetails,
+            include: appointmentRelations,
           });
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -156,7 +156,7 @@ export class AppointmentRepository {
   async findById(id: string) {
     return prismaClient.appointments.findUnique({
       where: { id },
-      include: appointmentDetails,
+      include: appointmentRelations,
     });
   }
 
@@ -183,7 +183,7 @@ export class AppointmentRepository {
         start_time: { lt: endDate },
         end_time: { gt: startDate },
       },
-      include: appointmentDetails,
+      include: appointmentRelations,
       orderBy: { start_time: "asc" },
     });
   }
@@ -192,7 +192,7 @@ export class AppointmentRepository {
     return prismaClient.appointments.update({
       where: { id },
       data: { status: "CANCELLED" },
-      include: appointmentDetails,
+      include: appointmentRelations,
     });
   }
 
@@ -202,11 +202,11 @@ export class AppointmentRepository {
     end_time,
     observation,
     procedure_id,
-  }: UpdateAppointmentTimesProps) {
+  }: UpdateAppointmentProps) {
     try {
       return await prismaClient.$transaction(
         async (tx) => {
-          const hasConflict = await tx.appointments.findFirst({
+          const conflictingAppointment = await tx.appointments.findFirst({
             where: {
               id: { not: id },
               status: { not: "CANCELLED" },
@@ -215,7 +215,7 @@ export class AppointmentRepository {
             },
           });
 
-          if (hasConflict) {
+          if (conflictingAppointment) {
             throw new ConflictError(
               "Erro: Já existe um agendamento neste horário, atualize a página e tente novamente!",
             );
@@ -230,7 +230,7 @@ export class AppointmentRepository {
               procedure_id,
               status: "SCHEDULED",
             },
-            include: appointmentDetails,
+            include: appointmentRelations,
           });
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },

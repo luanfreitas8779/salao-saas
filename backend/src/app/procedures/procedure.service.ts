@@ -29,28 +29,28 @@ export class ProcedureService {
     price,
     duration_minutes,
   }: CreateNewProcedureProps): Promise<Procedure> {
-    const procedureExist = await this.repository.findProcedureByName({
+    const procedureWithSameName = await this.repository.findProcedureByName({
       name: name,
     });
     //Verifica se há algum procedimento com o mesmo nome
-    if (procedureExist) {
+    if (procedureWithSameName) {
       throw new ConflictError(`O procedimento ${name} já existe!`);
     }
 
-    const createProcedure = await this.repository.createProcedure({
+    const createdProcedure = await this.repository.createProcedure({
       name: name,
       description: description,
       price: price,
       duration_minutes: duration_minutes,
     });
-    return createProcedure;
+    return createdProcedure;
   }
 
   async deleteProcedure({ id }: DeleteProcedureProps): Promise<Procedure> {
     await this.ensureProcedureExists({ id: id });
 
-    const deleteProcedure = await this.repository.deleteProcedure({ id: id });
-    return deleteProcedure;
+    const deactivatedProcedure = await this.repository.deleteProcedure({ id: id });
+    return deactivatedProcedure;
   }
 
   async editProcedure({
@@ -62,7 +62,7 @@ export class ProcedureService {
   }: EditProceduresProps): Promise<Procedure> {
     await this.ensureProcedureExists({ id: id });
 
-    const editProcedure = await this.repository.editProcedure({
+    const updatedProcedure = await this.repository.editProcedure({
       id: id,
       name: name,
       description: description,
@@ -70,29 +70,29 @@ export class ProcedureService {
       duration_minutes: duration_minutes,
     });
 
-    return editProcedure;
+    return updatedProcedure;
   }
 
   async findAllProcedures(): Promise<Procedure[]> {
-    const findAllProcedures = await this.repository.findAllProcedures();
-    return findAllProcedures;
+    const procedures = await this.repository.findAllProcedures();
+    return procedures;
   }
 
   async findActiveProcedures(): Promise<Procedure[]> {
-    const getAllProcedures = await this.repository.findActiveProcedures();
-    return getAllProcedures;
+    const activeProcedures = await this.repository.findActiveProcedures();
+    return activeProcedures;
   }
 
   //Validação repetida em delete e edit, centralizada em um lugar só
   private async ensureProcedureExists({
     id,
   }: DeleteProcedureProps): Promise<Procedure> {
-    const procedureExist = await this.repository.findProcedureById({ id: id });
-    if (!procedureExist) {
+    const procedure = await this.repository.findProcedureById({ id: id });
+    if (!procedure) {
       throw new NotFoundError(
         "Procedimento não encontrado, atualize a página e tente novamente!",
       );
     }
-    return procedureExist;
+    return procedure;
   }
 }

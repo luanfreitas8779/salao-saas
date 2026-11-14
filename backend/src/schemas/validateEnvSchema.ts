@@ -10,11 +10,11 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(1),
 });
 
-const parseEnv = envSchema.safeParse(process.env);
+const parsedEnv = envSchema.safeParse(process.env);
 
-if (!parseEnv.success) {
-  console.error("Erro na validação das variáveis de ambiente:", parseEnv.error.format());
+if (!parsedEnv.success) {
+  console.error("Erro na validação das variáveis de ambiente:", parsedEnv.error.format());
   throw new BadRequestError("TA FALTANDO VARIAVEL!");
 }
 
-export const env = parseEnv.data;
+export const env = parsedEnv.data;

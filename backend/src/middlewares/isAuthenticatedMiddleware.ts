@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import { UnauthorizedError } from "../errors/app-error";
 import { Request, Response, NextFunction } from "express";
 
-interface Payload {
+interface TokenPayload {
   sub: string;
   role?: string;
 }
@@ -12,19 +12,19 @@ export function isAuthenticated(
   _: Response,
   next: NextFunction,
 ) {
-  const authToken = req.headers.authorization;
+  const authHeader = req.headers.authorization;
 
-  if (!authToken) {
+  if (!authHeader) {
     throw new UnauthorizedError("Token não informado");
   }
 
-  const [, token] = authToken!.split(" ");
+  const [, token] = authHeader!.split(" ");
 
   try {
     const { sub, role } = jwt.verify(
       token!,
       process.env.JWT_SECRET as string,
-    ) as Payload;
+    ) as TokenPayload;
 
     req.user_id = sub;
     req.user_role = role;

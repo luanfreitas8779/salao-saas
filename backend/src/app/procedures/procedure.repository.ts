@@ -25,13 +25,13 @@ export class ProcedureRepository implements IProcedureRepository {
   async findProcedureById({
     id,
   }: FindProcedureByIdProps): Promise<Procedure | null> {
-    const findProcedure = await prismaClient.procedures.findUnique({
+    const procedure = await prismaClient.procedures.findUnique({
       where: {
         id: id,
       },
     });
 
-    return findProcedure;
+    return procedure;
   }
 
   async createProcedure({
@@ -53,7 +53,7 @@ export class ProcedureRepository implements IProcedureRepository {
   }
 
   async deleteProcedure({ id }: DeleteProcedureProps): Promise<Procedure> {
-    const deleteProcedure = await prismaClient.procedures.update({
+    const deactivatedProcedure = await prismaClient.procedures.update({
       where: {
         id: id,
       },
@@ -61,7 +61,7 @@ export class ProcedureRepository implements IProcedureRepository {
         is_active: false,
       },
     });
-    return deleteProcedure;
+    return deactivatedProcedure;
   }
 
   async editProcedure({
@@ -71,7 +71,7 @@ export class ProcedureRepository implements IProcedureRepository {
     price,
     duration_minutes,
   }: EditProcedureProps): Promise<Procedure> {
-    const editProcedure = await prismaClient.$transaction(async (tx) => {
+    const updatedProcedure = await prismaClient.$transaction(async (tx) => {
       //Verifica se outro procedimento (id diferente) já usa este nome
       const nameInUse = await tx.procedures.findFirst({
         where: {
@@ -97,20 +97,20 @@ export class ProcedureRepository implements IProcedureRepository {
         },
       });
     });
-    return editProcedure;
+    return updatedProcedure;
   }
 
   async findAllProcedures(): Promise<Procedure[]> {
-    const findAllProcedures = await prismaClient.procedures.findMany();
-    return findAllProcedures;
+    const procedures = await prismaClient.procedures.findMany();
+    return procedures;
   }
 
   async findActiveProcedures(): Promise<Procedure[]> {
-    const findAllProcedures = await prismaClient.procedures.findMany({
+    const activeProcedures = await prismaClient.procedures.findMany({
       where: {
         is_active: true,
       },
     });
-    return findAllProcedures;
+    return activeProcedures;
   }
 }

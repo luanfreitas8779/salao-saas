@@ -1,7 +1,7 @@
 import { WorkingHours } from "../../generated/prisma/client";
 import prismaClient from "../../prisma";
 
-interface DayDataProps {
+interface WorkingDayProps {
   day: number;
   start_time: string;
   end_time: string;
@@ -11,11 +11,11 @@ interface DayDataProps {
 }
 
 export class WorkingHoursRepository {
-  async updateWorkingHours(newData: DayDataProps[]): Promise<WorkingHours[]> {
+  async updateWorkingHours(days: WorkingDayProps[]): Promise<WorkingHours[]> {
     //updateMany aplica o mesmo valor a todas as linhas, então cada dia é atualizado
     //separadamente dentro de uma transação (ou atualiza todos, ou nenhum)
-    const update = await prismaClient.$transaction(
-      newData.map((day) =>
+    const updatedDays = await prismaClient.$transaction(
+      days.map((day) =>
         prismaClient.workingHours.update({
           where: { dayOfWeek: day.day },
           data: {
@@ -29,15 +29,15 @@ export class WorkingHoursRepository {
       ),
     );
 
-    return update;
+    return updatedDays;
   }
 
   async findWorkingHoursOfDay(dayOfWeek: number): Promise<WorkingHours | null> {
-    const isOpen = prismaClient.workingHours.findFirst({
+    const workingHours = prismaClient.workingHours.findFirst({
       where: {
         dayOfWeek: dayOfWeek,
       },
     });
-    return isOpen;
+    return workingHours;
   }
 }

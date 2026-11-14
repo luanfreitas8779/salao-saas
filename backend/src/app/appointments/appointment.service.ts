@@ -21,7 +21,7 @@ import {
   toMinutes,
 } from "../../utils/businessTime";
 
-const CANCEL_MIN_HOURS = 24;
+const MIN_LEAD_TIME_HOURS = 24;
 
 interface AppointmentAvailabilityProps {
   procedure_id: string;
@@ -37,26 +37,26 @@ interface CreateAppointmentProps {
   client_id?: string;
 }
 
-interface MutationActorProps {
+interface AppointmentActorProps {
   appointmentId: string;
   actor_id: string;
   actor_role?: string;
 }
 
-interface UpdateAppointmentProps extends MutationActorProps {
+interface UpdateAppointmentProps extends AppointmentActorProps {
   start_time?: string;
   procedure_id?: string;
   observation?: string;
 }
 
-function isAdmin(role?: string) {
+function isAdminRole(role?: string) {
   return role === "ADMIN";
 }
 
 function assertMinLeadTime(startTime: Date) {
-  if (isBefore(startTime, addHours(new Date(), CANCEL_MIN_HOURS))) {
+  if (isBefore(startTime, addHours(new Date(), MIN_LEAD_TIME_HOURS))) {
     throw new BadRequestError(
-      `Cancelamento e edição só são permitidos com no mínimo ${CANCEL_MIN_HOURS} horas de antecedência.`,
+      `Cancelamento e edição só são permitidos com no mínimo ${MIN_LEAD_TIME_HOURS} horas de antecedência.`,
     );
   }
 }
@@ -79,7 +79,7 @@ export class AppointmentService {
       throw new NotFoundError("Procedimento não encontrado");
     }
 
-    const duration_time = procedure.duration_minutes;
+    const durationMinutes = procedure.duration_minutes;
     const startDay = businessDateTime(date);
     const endDay = nextBusinessDay(date);
     const dayOfWeek = businessDayOfWeek(date);
@@ -96,7 +96,7 @@ export class AppointmentService {
     const openMinutes = toMinutes(workingHours.start_time);
     const closeMinutes = toMinutes(workingHours.end_time);
 
-    const [getBlocksOnDay, appointmentsOnDay] = await Promise.all([
+    const [scheduleBlocksOnDay, appointmentsOnDay] = await Promise.all([
       this.scheduleBlocksRepository.findConflictingScheduleBlock({
         start_time: startDay,
         end_time: endDay,
@@ -107,38 +107,38 @@ export class AppointmentService {
       }),
     ]);
 
-    const blocksOnDay = [...appointmentsOnDay, ...getBlocksOnDay];
+    const busyPeriods = [...appointmentsOnDay, ...scheduleBlocksOnDay];
 
     if (workingHours.break_start && workingHours.break_end) {
-      blocksOnDay.push({
+      busyPeriods.push({
         start_time: businessDateTime(date, workingHours.break_start),
         end_time: businessDateTime(date, workingHours.break_end),
       });
     }
 
     const now = new Date();
-    const possibleHours: string[] = [];
+    const availableSlots: string[] = [];
 
     for (
       let slotStart = openMinutes;
-      slotStart + duration_time <= closeMinutes;
+      slotStart + durationMinutes <= closeMinutes;
       slotStart += SLOT_STEP_MINUTES
     ) {
       const slotStartTime = businessDateTime(date, fromMinutes(slotStart));
-      const slotEndTime = addMinutes(slotStartTime, duration_time);
+      const slotEndTime = addMinutes(slotStartTime, durationMinutes);
 
       const isPast = slotStartTime <= now;
-      const isBlocked = blocksOnDay.some(
+      const isBlocked = busyPeriods.some(
         (block) =>
           slotStartTime < block.end_time && slotEndTime > block.start_time,
       );
 
       if (!isPast && !isBlocked) {
-        possibleHours.push(fromMinutes(slotStart));
+        availableSlots.push(fromMinutes(slotStart));
       }
     }
 
-    return possibleHours;
+    return availableSlots;
   }
 
   // Garante que o intervalo [start, end] respeita as regras do salão:
@@ -150,11 +150,11 @@ export class AppointmentService {
       );
     }
 
-    const { date, minutes: startMinutes } = toBusinessWallClock(start);
+    const { date: startDate, minutes: startMinutes } = toBusinessWallClock(start);
     const { date: endDate, minutes: endMinutes } = toBusinessWallClock(end);
 
     const workingHours = await this.workingHoursRepository.findWorkingHoursOfDay(
-      businessDayOfWeek(date),
+      businessDayOfWeek(startDate),
     );
 
     if (!workingHours || !workingHours.isOpen) {
@@ -165,7 +165,7 @@ export class AppointmentService {
     const closeMinutes = toMinutes(workingHours.end_time);
 
     if (
-      endDate !== date ||
+      endDate !== startDate ||
       startMinutes < openMinutes ||
       endMinutes > closeMinutes
     ) {
@@ -217,7 +217,7 @@ export class AppointmentService {
 
     let resolvedClientId = actor_id;
     if (client_id && client_id !== actor_id) {
-      if (!isAdmin(actor_role)) {
+      if (!isAdminRole(actor_role)) {
         throw new UnauthorizedError(
           "Sem permissão para agendar em nome de outro cliente",
         );
@@ -229,26 +229,26 @@ export class AppointmentService {
       resolvedClientId = client_id;
     }
 
-    const startHour = new Date(start_time);
-    const end_time = addMinutes(startHour, procedure.duration_minutes);
+    const startTime = new Date(start_time);
+    const endTime = addMinutes(startTime, procedure.duration_minutes);
 
-    await this.assertWithinBusinessRules(startHour, end_time);
+    await this.assertWithinBusinessRules(startTime, endTime);
 
-    const hasBlock =
+    const conflictingBlocks =
       await this.scheduleBlocksRepository.findConflictingScheduleBlock({
-        start_time: startHour,
-        end_time: end_time,
+        start_time: startTime,
+        end_time: endTime,
       });
 
-    if (hasBlock.length > 0) {
+    if (conflictingBlocks.length > 0) {
       throw new BadRequestError(
         "Esta data não está disponível para agendamentos.",
       );
     }
 
     return this.appointmentRepository.createAppointment({
-      start_time: startHour,
-      end_time: end_time,
+      start_time: startTime,
+      end_time: endTime,
       observation: observation,
       client_id: resolvedClientId,
       procedure_id: procedure_id,
@@ -269,7 +269,7 @@ export class AppointmentService {
     appointmentId,
     actor_id,
     actor_role,
-  }: MutationActorProps) {
+  }: AppointmentActorProps) {
     actor_role = await this.resolveActorRole(actor_id, actor_role);
 
     const appointment =
@@ -283,14 +283,14 @@ export class AppointmentService {
       throw new BadRequestError("Este agendamento já está cancelado");
     }
 
-    const admin = isAdmin(actor_role);
-    if (!admin && appointment.client_id !== actor_id) {
+    const actorIsAdmin = isAdminRole(actor_role);
+    if (!actorIsAdmin && appointment.client_id !== actor_id) {
       throw new ForbiddenError(
         "Você não pode cancelar o agendamento de outro cliente",
       );
     }
 
-    if (!admin) {
+    if (!actorIsAdmin) {
       assertMinLeadTime(appointment.start_time);
     }
 
@@ -316,46 +316,46 @@ export class AppointmentService {
       throw new BadRequestError("Não é possível editar um agendamento cancelado");
     }
 
-    const admin = isAdmin(actor_role);
-    if (!admin && appointment.client_id !== actor_id) {
+    const actorIsAdmin = isAdminRole(actor_role);
+    if (!actorIsAdmin && appointment.client_id !== actor_id) {
       throw new ForbiddenError(
         "Você não pode editar o agendamento de outro cliente",
       );
     }
 
-    if (!admin) {
+    if (!actorIsAdmin) {
       assertMinLeadTime(appointment.start_time);
     }
 
-    const nextProcedureId = procedure_id ?? appointment.procedure_id;
+    const procedureId = procedure_id ?? appointment.procedure_id;
     const procedure = await this.procedureRepository.findProcedureById({
-      id: nextProcedureId,
+      id: procedureId,
     });
 
     if (!procedure || !procedure.is_active) {
       throw new NotFoundError("Procedimento não encontrado");
     }
 
-    const nextStart = start_time
+    const newStartTime = start_time
       ? new Date(start_time)
       : appointment.start_time;
-    const nextEnd = addMinutes(nextStart, procedure.duration_minutes);
+    const newEndTime = addMinutes(newStartTime, procedure.duration_minutes);
 
-    if (!admin && start_time) {
-      assertMinLeadTime(nextStart);
+    if (!actorIsAdmin && start_time) {
+      assertMinLeadTime(newStartTime);
     }
 
     if (start_time || procedure_id) {
-      await this.assertWithinBusinessRules(nextStart, nextEnd);
+      await this.assertWithinBusinessRules(newStartTime, newEndTime);
     }
 
-    const hasBlock =
+    const conflictingBlocks =
       await this.scheduleBlocksRepository.findConflictingScheduleBlock({
-        start_time: nextStart,
-        end_time: nextEnd,
+        start_time: newStartTime,
+        end_time: newEndTime,
       });
 
-    if (hasBlock.length > 0) {
+    if (conflictingBlocks.length > 0) {
       throw new BadRequestError(
         "Esta data não está disponível para agendamentos.",
       );
@@ -363,11 +363,11 @@ export class AppointmentService {
 
     return this.appointmentRepository.updateAppointment({
       id: appointmentId,
-      start_time: nextStart,
-      end_time: nextEnd,
+      start_time: newStartTime,
+      end_time: newEndTime,
       observation:
         observation !== undefined ? observation : appointment.observation ?? undefined,
-      procedure_id: nextProcedureId,
+      procedure_id: procedureId,
     });
   }
 }

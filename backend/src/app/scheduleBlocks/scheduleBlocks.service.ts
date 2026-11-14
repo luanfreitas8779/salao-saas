@@ -17,30 +17,30 @@ export class ScheduleBlocksService {
     end_time,
     reason,
   }: CreateScheduleBlockProps) {
-    const [hasScheduleBlock, findConflitingAppointments] = await Promise.all([
+    const [conflictingBlocks, conflictingAppointment] = await Promise.all([
       this.scheduleBlocksRepository.findConflictingScheduleBlock({
         start_time: start_time,
         end_time: end_time,
       }),
       this.appointmentsRepository.findConflictingAppointment({
-        startHour: start_time,
+        start_time: start_time,
         end_time: end_time,
       }),
     ]);
 
-    if (hasScheduleBlock.length > 0 || findConflitingAppointments) {
+    if (conflictingBlocks.length > 0 || conflictingAppointment) {
       throw new BadRequestError(
         "Já existe algum bloqueio ou agendamento para a data selecionada.",
       );
     }
 
-    const createBlock =
+    const createdBlock =
       await this.scheduleBlocksRepository.createNewScheduleBlock({
         start_time: start_time,
         end_time: end_time,
         reason: reason,
       });
 
-    return createBlock;
+    return createdBlock;
   }
 }

@@ -1,7 +1,7 @@
 import { WorkingHours } from "../../generated/prisma/client";
 import { WorkingHoursRepository } from "./workingHours.repository";
 
-interface DayDataProps {
+interface WorkingDayProps {
   day: number;
   start_time: string;
   end_time: string;
@@ -15,10 +15,10 @@ export class WorkingHoursService {
     private readonly workingHoursRepository: WorkingHoursRepository,
   ) {}
 
-  async updateWorkingHours(newData: DayDataProps[]): Promise<WorkingHours[]> {
-    const update =
-      await this.workingHoursRepository.updateWorkingHours(newData);
+  async updateWorkingHours(days: WorkingDayProps[]): Promise<WorkingHours[]> {
+    const updatedDays =
+      await this.workingHoursRepository.updateWorkingHours(days);
 
-    return update;
+    return updatedDays;
   }
 }
