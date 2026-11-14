@@ -97,6 +97,7 @@ describe("ProcedureService.deleteProcedure", () => {
       service.deleteProcedure({ id: "nao-existe" }),
     ).rejects.toBeInstanceOf(NotFoundError);
     expect(repository.deleteProcedure).not.toHaveBeenCalled();
+    expect(repository.findProcedureById).toHaveBeenCalledTimes(1)
   });
 });
 
@@ -118,6 +119,7 @@ describe("ProcedureService.editProcedure", () => {
 
     expect(resultado).toEqual(editado);
     expect(repository.editProcedure).toHaveBeenCalledWith(dados);
+    expect(repository.editProcedure).toHaveBeenCalledTimes(1)
   });
 
   it("repassa o ConflictError quando o nome já pertence a outro procedimento", async () => {

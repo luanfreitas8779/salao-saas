@@ -20,6 +20,7 @@ Detalhes técnicos do que existe: [ARQUITETURA.md](ARQUITETURA.md).
 - [x] Rotas alinhadas ao documento (`/auth/*`, `/procedures/:id`, `/appointments/slots`)
 - [x] Correção do horário de funcionamento (atualização em lote por dia), dos bloqueios (datas completas, conflito, `this`) e do seed (senha com hash)
 - [x] Padronização: erros (401/403/409/429), ordem dos middlewares, estilo do módulo `user`
+- [x] Testes unitários (Vitest) de services, middlewares, schemas Zod e `businessTime`: disponibilidade, regras de agendamento, cancelamento/edição (24h) e autorização
 
 ## Falta — Backend
 
@@ -27,7 +28,7 @@ Detalhes técnicos do que existe: [ARQUITETURA.md](ARQUITETURA.md).
 - [ ] **E-mail de recuperação**: o link aponta para `localhost:3333/auth/recoverypassword/<token>`, rota que não existe; deve usar a URL do front-end vinda de variável de ambiente
 - [ ] **CORS**: configurar origens permitidas antes de publicar (hoje `cors()` aberto, para testes locais)
 - [ ] **Bloqueios**: listar, editar e remover; confirmar bloqueio de dia inteiro/feriado; exibir bloqueios na grade do admin
-- [ ] **Testes automatizados** do motor de disponibilidade, trava de conflito, regra de cancelamento e autorização
+- [ ] **Testes de integração** (com banco) da trava de conflito (`appointments_no_overlap`) e dos repositories
 
 ### Média prioridade
 - [ ] Fluxo para marcar agendamento como `COMPLETED`

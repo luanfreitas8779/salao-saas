@@ -1,13 +1,16 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { hash } from "bcrypt";
+import { compare, hash } from "bcrypt";
 import { verify } from "jsonwebtoken";
+import crypto from "crypto";
 
 import { UserService } from "./user.service";
 import type { UserRepository } from "./user.repository";
 import { sendMail } from "../../config/mailer";
 import {
+  BadRequestError,
   ConflictError,
   InternalServerError,
+  NotFoundError,
   UnauthorizedError,
 } from "../../errors/app-error";
 
@@ -23,6 +26,11 @@ const repository = {
   findUserByPhone: vi.fn(),
   createUser: vi.fn(),
   createPasswordResetToken: vi.fn(),
+  updatePasswordResetToken: vi.fn(),
+  findPasswordResetToken: vi.fn(),
+  updateUserPassword: vi.fn(),
+  findUserById: vi.fn(),
+  updateProfile: vi.fn(),
 };
 
 const service = new UserService(repository as unknown as UserRepository);
@@ -241,5 +249,165 @@ describe("UserService.recoveryPassword", () => {
     await expect(
       service.recoveryPassword({ email: "maria@email.com" }),
     ).rejects.toThrow("Erro ao enviar email de recuperação de senha.");
+  });
+});
+
+describe("UserService.resetPassword", () => {
+  const TOKEN_CRU = "token-recebido-no-email";
+  const TOKEN_HASH = crypto.createHash("sha256").update(TOKEN_CRU).digest("hex");
+  const NOVA_SENHA = "novaSenha123";
+
+  it("lança BadRequestError e não mexe no banco quando o token está vazio", async () => {
+    await expect(
+      service.resetPassword({ token: "", newPassword: NOVA_SENHA }),
+    ).rejects.toBeInstanceOf(BadRequestError);
+    expect(repository.updatePasswordResetToken).not.toHaveBeenCalled();
+    expect(repository.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("marca o token como usado buscando pelo hash, nunca pelo token cru", async () => {
+    repository.updatePasswordResetToken.mockResolvedValue({ id: "token-1" });
+    repository.findPasswordResetToken.mockResolvedValue({ userId: "user-id-1" });
+    repository.updateUserPassword.mockResolvedValue(criarUsuario());
+
+    await service.resetPassword({ token: TOKEN_CRU, newPassword: NOVA_SENHA });
+
+    expect(repository.updatePasswordResetToken).toHaveBeenCalledWith({
+      hashedToken: TOKEN_HASH,
+    });
+    expect(repository.updatePasswordResetToken).toHaveBeenCalledTimes(1);
+    expect(repository.findPasswordResetToken).toHaveBeenCalledWith({
+      hashedToken: TOKEN_HASH,
+    });
+  });
+
+  it("grava o hash da nova senha para o dono do token e confirma a troca", async () => {
+    repository.updatePasswordResetToken.mockResolvedValue({ id: "token-1" });
+    repository.findPasswordResetToken.mockResolvedValue({ userId: "user-id-1" });
+    repository.updateUserPassword.mockResolvedValue(criarUsuario());
+
+    const resposta = await service.resetPassword({
+      token: TOKEN_CRU,
+      newPassword: NOVA_SENHA,
+    });
+
+    expect(resposta).toBe("Senha alterada com sucesso!");
+
+    const gravado = repository.updateUserPassword.mock.calls[0]![0];
+    expect(gravado.userId).toBe("user-id-1");
+    expect(gravado.newPasswordHash).not.toBe(NOVA_SENHA);
+    await expect(compare(NOVA_SENHA, gravado.newPasswordHash)).resolves.toBe(true);
+    expect(repository.updateUserPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it("lança BadRequestError e não troca a senha quando o token não existe ou já foi usado", async () => {
+    repository.updatePasswordResetToken.mockResolvedValue(null);
+
+    await expect(
+      service.resetPassword({ token: TOKEN_CRU, newPassword: NOVA_SENHA }),
+    ).rejects.toThrow("Token inválido ou expirado!");
+    expect(repository.findPasswordResetToken).not.toHaveBeenCalled();
+    expect(repository.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("lança BadRequestError quando não acha os dados do token depois de marcá-lo", async () => {
+    repository.updatePasswordResetToken.mockResolvedValue({ id: "token-1" });
+    repository.findPasswordResetToken.mockResolvedValue(null);
+
+    await expect(
+      service.resetPassword({ token: TOKEN_CRU, newPassword: NOVA_SENHA }),
+    ).rejects.toThrow("Usuário não encontrado para este token.");
+    expect(repository.updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it("lança InternalServerError quando o banco não confirma a troca da senha", async () => {
+    repository.updatePasswordResetToken.mockResolvedValue({ id: "token-1" });
+    repository.findPasswordResetToken.mockResolvedValue({ userId: "user-id-1" });
+    repository.updateUserPassword.mockResolvedValue(null);
+
+    await expect(
+      service.resetPassword({ token: TOKEN_CRU, newPassword: NOVA_SENHA }),
+    ).rejects.toBeInstanceOf(InternalServerError);
+  });
+});
+
+describe("UserService.getUserById", () => {
+  it("devolve o usuário sem o password_hash", async () => {
+    const usuario = criarUsuario();
+    repository.findUserById.mockResolvedValue(usuario);
+
+    const resultado = await service.getUserById({ id: usuario.id });
+
+    expect(resultado).not.toHaveProperty("password_hash");
+    expect(resultado).toEqual({
+      id: usuario.id,
+      name: usuario.name,
+      email: usuario.email,
+      phone: usuario.phone,
+      role: usuario.role,
+      createdAt: usuario.createdAt,
+      updatedAt: usuario.updatedAt,
+    });
+    expect(repository.findUserById).toHaveBeenCalledWith({ id: usuario.id });
+    expect(repository.findUserById).toHaveBeenCalledTimes(1);
+  });
+
+  it("lança NotFoundError quando o usuário não existe", async () => {
+    repository.findUserById.mockResolvedValue(null);
+
+    await expect(service.getUserById({ id: "nao-existe" })).rejects.toThrow(
+      new NotFoundError("Usuário não encontrado"),
+    );
+  });
+});
+
+describe("UserService.updateProfile", () => {
+  it("atualiza o telefone quando ele é livre", async () => {
+    repository.findUserByPhone.mockResolvedValue(null);
+    repository.updateProfile.mockResolvedValue({ id: "user-id-1" });
+
+    const resultado = await service.updateProfile({
+      id: "user-id-1",
+      phone: "11888888888",
+    });
+
+    expect(resultado).toEqual({ id: "user-id-1" });
+    expect(repository.updateProfile).toHaveBeenCalledWith({
+      id: "user-id-1",
+      phone: "11888888888",
+      password_hash: undefined,
+    });
+    expect(repository.updateProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it("permite manter o próprio telefone (o dono do número é o próprio usuário)", async () => {
+    repository.findUserByPhone.mockResolvedValue(criarUsuario({ id: "user-id-1" }));
+    repository.updateProfile.mockResolvedValue({ id: "user-id-1" });
+
+    await service.updateProfile({ id: "user-id-1", phone: "11999999999" });
+
+    expect(repository.updateProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it("lança ConflictError e não atualiza quando o telefone é de outro usuário", async () => {
+    repository.findUserByPhone.mockResolvedValue(criarUsuario({ id: "outro-id" }));
+
+    await expect(
+      service.updateProfile({ id: "user-id-1", phone: "11999999999" }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(repository.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("troca só a senha, gravando o hash e sem consultar o telefone", async () => {
+    repository.updateProfile.mockResolvedValue({ id: "user-id-1" });
+
+    await service.updateProfile({ id: "user-id-1", password: "novaSenha123" });
+
+    expect(repository.findUserByPhone).not.toHaveBeenCalled();
+
+    const gravado = repository.updateProfile.mock.calls[0]![0];
+    expect(gravado.phone).toBeUndefined();
+    expect(gravado.password_hash).not.toBe("novaSenha123");
+    await expect(compare("novaSenha123", gravado.password_hash)).resolves.toBe(true);
   });
 });
