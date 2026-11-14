@@ -1,6 +1,5 @@
 import { NotFoundError, ConflictError } from "../../errors/app-error";
-import { Procedures } from "../../generated/prisma/client";
-import { ProcedureRepository } from "./procedure.repository";
+import { IProcedureRepository, Procedure } from "./IProcedure.repository";
 
 interface CreateNewProcedureProps {
   name: string;
@@ -22,13 +21,14 @@ interface EditProceduresProps {
 }
 
 export class ProcedureService {
-  constructor(private readonly repository: ProcedureRepository) {}
+  //Recebe a interface, não o repository real. Quem decide qual usar é a factory.
+  constructor(private readonly repository: IProcedureRepository) {}
   async createProcedure({
     name,
     description,
     price,
     duration_minutes,
-  }: CreateNewProcedureProps): Promise<Procedures | undefined> {
+  }: CreateNewProcedureProps): Promise<Procedure> {
     const procedureExist = await this.repository.findProcedureByName({
       name: name,
     });
@@ -46,13 +46,8 @@ export class ProcedureService {
     return createProcedure;
   }
 
-  async deleteProcedure({ id }: DeleteProcedureProps): Promise<Procedures> {
-    const procedureExist = await this.repository.findProcedureById({ id });
-    if (!procedureExist) {
-      throw new NotFoundError(
-        "Procedimento não encontrado, atualize a página e tente novamente!",
-      );
-    }
+  async deleteProcedure({ id }: DeleteProcedureProps): Promise<Procedure> {
+    await this.ensureProcedureExists({ id: id });
 
     const deleteProcedure = await this.repository.deleteProcedure({ id: id });
     return deleteProcedure;
@@ -64,13 +59,8 @@ export class ProcedureService {
     description,
     price,
     duration_minutes,
-  }: EditProceduresProps): Promise<Procedures> {
-    const procedureExist = await this.repository.findProcedureById({ id: id });
-    if (!procedureExist) {
-      throw new NotFoundError(
-        "Procedimento não encontrado, atualize a página e tente novamente!",
-      );
-    }
+  }: EditProceduresProps): Promise<Procedure> {
+    await this.ensureProcedureExists({ id: id });
 
     const editProcedure = await this.repository.editProcedure({
       id: id,
@@ -83,13 +73,26 @@ export class ProcedureService {
     return editProcedure;
   }
 
-  async findAllProcedures(): Promise<Procedures[]> {
+  async findAllProcedures(): Promise<Procedure[]> {
     const findAllProcedures = await this.repository.findAllProcedures();
     return findAllProcedures;
   }
 
-  async findActiveProcedures(): Promise<Procedures[]> {
+  async findActiveProcedures(): Promise<Procedure[]> {
     const getAllProcedures = await this.repository.findActiveProcedures();
     return getAllProcedures;
+  }
+
+  //Validação repetida em delete e edit, centralizada em um lugar só
+  private async ensureProcedureExists({
+    id,
+  }: DeleteProcedureProps): Promise<Procedure> {
+    const procedureExist = await this.repository.findProcedureById({ id: id });
+    if (!procedureExist) {
+      throw new NotFoundError(
+        "Procedimento não encontrado, atualize a página e tente novamente!",
+      );
+    }
+    return procedureExist;
   }
 }
