@@ -35,7 +35,7 @@ interface FindPasswordResetTokenProps {
   hashedToken: string;
 }
 
-interface UpdatePasswordResetTokenProps {
+interface MarkPasswordResetTokenAsUsedProps {
   hashedToken: string;
 }
 
@@ -115,14 +115,22 @@ export class UserRepository {
     return resetToken;
   }
 
-  async updatePasswordResetToken({
+  //Marca o token como usado só se ele ainda vale (não usado e não expirado).
+  //updateMany não lança erro quando não acha nada: devolve { count: 0 }.
+  //Como a checagem e a marcação são uma única operação no banco, dois pedidos
+  //simultâneos com o mesmo token não conseguem os dois usá-lo.
+  async markPasswordResetTokenAsUsed({
     hashedToken,
-  }: UpdatePasswordResetTokenProps): Promise<PasswordResetToken> {
-    const updatedToken = await prismaClient.passwordResetToken.update({
-      where: { token_hash: hashedToken },
+  }: MarkPasswordResetTokenAsUsedProps): Promise<boolean> {
+    const { count } = await prismaClient.passwordResetToken.updateMany({
+      where: {
+        token_hash: hashedToken,
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
       data: { used: true },
     });
-    return updatedToken;
+    return count > 0;
   }
 
   async updateUserPassword({

@@ -26,7 +26,7 @@ const repository = {
   findUserByPhone: vi.fn(),
   createUser: vi.fn(),
   createPasswordResetToken: vi.fn(),
-  updatePasswordResetToken: vi.fn(),
+  markPasswordResetTokenAsUsed: vi.fn(),
   findPasswordResetToken: vi.fn(),
   updateUserPassword: vi.fn(),
   findUserById: vi.fn(),
@@ -36,6 +36,7 @@ const repository = {
 const service = new UserService(repository as unknown as UserRepository);
 
 const JWT_SECRET_TESTE = "segredo-so-para-testes";
+const FRONTEND_URL_TESTE = "http://front.teste";
 const SENHA_CORRETA = "senha123";
 
 let passwordHash: string;
@@ -62,6 +63,7 @@ beforeAll(async () => {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("JWT_SECRET", JWT_SECRET_TESTE);
+  vi.stubEnv("FRONTEND_URL", FRONTEND_URL_TESTE);
 });
 
 afterEach(() => {
@@ -230,7 +232,10 @@ describe("UserService.recoveryPassword", () => {
 
     // o banco guarda o hash; o e-mail leva o token cru
     expect(html).not.toContain(salvo.token_hash);
-    const tokenCru = /recoverypassword\/([a-f0-9]{64})/.exec(html)?.[1];
+    // o link abre a página de redefinição do front-end, com o token na URL
+    const tokenCru = new RegExp(
+      `href="${FRONTEND_URL_TESTE}/reset-password/([a-f0-9]{64})"`,
+    ).exec(html)?.[1];
     expect(tokenCru).toBeDefined();
     expect(tokenCru).not.toBe(salvo.token_hash);
 
@@ -261,28 +266,28 @@ describe("UserService.resetPassword", () => {
     await expect(
       service.resetPassword({ token: "", newPassword: NOVA_SENHA }),
     ).rejects.toBeInstanceOf(BadRequestError);
-    expect(repository.updatePasswordResetToken).not.toHaveBeenCalled();
+    expect(repository.markPasswordResetTokenAsUsed).not.toHaveBeenCalled();
     expect(repository.updateUserPassword).not.toHaveBeenCalled();
   });
 
   it("marca o token como usado buscando pelo hash, nunca pelo token cru", async () => {
-    repository.updatePasswordResetToken.mockResolvedValue({ id: "token-1" });
+    repository.markPasswordResetTokenAsUsed.mockResolvedValue(true);
     repository.findPasswordResetToken.mockResolvedValue({ userId: "user-id-1" });
     repository.updateUserPassword.mockResolvedValue(criarUsuario());
 
     await service.resetPassword({ token: TOKEN_CRU, newPassword: NOVA_SENHA });
 
-    expect(repository.updatePasswordResetToken).toHaveBeenCalledWith({
+    expect(repository.markPasswordResetTokenAsUsed).toHaveBeenCalledWith({
       hashedToken: TOKEN_HASH,
     });
-    expect(repository.updatePasswordResetToken).toHaveBeenCalledTimes(1);
+    expect(repository.markPasswordResetTokenAsUsed).toHaveBeenCalledTimes(1);
     expect(repository.findPasswordResetToken).toHaveBeenCalledWith({
       hashedToken: TOKEN_HASH,
     });
   });
 
   it("grava o hash da nova senha para o dono do token e confirma a troca", async () => {
-    repository.updatePasswordResetToken.mockResolvedValue({ id: "token-1" });
+    repository.markPasswordResetTokenAsUsed.mockResolvedValue(true);
     repository.findPasswordResetToken.mockResolvedValue({ userId: "user-id-1" });
     repository.updateUserPassword.mockResolvedValue(criarUsuario());
 
@@ -300,8 +305,8 @@ describe("UserService.resetPassword", () => {
     expect(repository.updateUserPassword).toHaveBeenCalledTimes(1);
   });
 
-  it("lança BadRequestError e não troca a senha quando o token não existe ou já foi usado", async () => {
-    repository.updatePasswordResetToken.mockResolvedValue(null);
+  it("lança BadRequestError e não troca a senha quando o token não existe, já foi usado ou expirou", async () => {
+    repository.markPasswordResetTokenAsUsed.mockResolvedValue(false);
 
     await expect(
       service.resetPassword({ token: TOKEN_CRU, newPassword: NOVA_SENHA }),
@@ -311,7 +316,7 @@ describe("UserService.resetPassword", () => {
   });
 
   it("lança BadRequestError quando não acha os dados do token depois de marcá-lo", async () => {
-    repository.updatePasswordResetToken.mockResolvedValue({ id: "token-1" });
+    repository.markPasswordResetTokenAsUsed.mockResolvedValue(true);
     repository.findPasswordResetToken.mockResolvedValue(null);
 
     await expect(
@@ -321,7 +326,7 @@ describe("UserService.resetPassword", () => {
   });
 
   it("lança InternalServerError quando o banco não confirma a troca da senha", async () => {
-    repository.updatePasswordResetToken.mockResolvedValue({ id: "token-1" });
+    repository.markPasswordResetTokenAsUsed.mockResolvedValue(true);
     repository.findPasswordResetToken.mockResolvedValue({ userId: "user-id-1" });
     repository.updateUserPassword.mockResolvedValue(null);
 

@@ -86,7 +86,7 @@ Prefixo `/api`. Auth = `Authorization: Bearer <JWT>`.
 
 ## Variáveis de ambiente (`validateEnvSchema.ts`)
 
-`DATABASE_URL`, `PORT` (padrão 3333), `EMAIL_USER`, `EMAIL_PASS`, `JWT_SECRET`.
+`DATABASE_URL`, `PORT` (padrão 3333), `EMAIL_USER`, `EMAIL_PASS`, `JWT_SECRET`, `FRONTEND_URL` (sem `/` no final; o link do e-mail de recuperação é `FRONTEND_URL/reset-password/<token>`).
 
 ## Padrões de código
 

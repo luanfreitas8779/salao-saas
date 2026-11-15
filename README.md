@@ -85,6 +85,7 @@ npm run dev                 # sobe em http://localhost:3333
 | `PORT` | Porta da API (padrão `3333`) |
 | `JWT_SECRET` | Segredo para assinar os tokens |
 | `EMAIL_USER` / `EMAIL_PASS` | Conta usada para enviar o e-mail de recuperação de senha |
+| `FRONTEND_URL` | Endereço do front-end, sem `/` no final (o link do e-mail abre `FRONTEND_URL/reset-password/<token>`) |
 
 ## Testes
 

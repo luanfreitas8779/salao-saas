@@ -158,7 +158,7 @@ export class UserService {
         "Recuperação de senha",
         `<h2> Olá ${user.name}</h2>
         <p>Você solicitou redefinição de senha. Clique no link abaixo para redefinir sua senha!</p>
-        <a href="http://localhost:3333/auth/recoverypassword/${rawToken}">👉 Redefinir minha senha!</a>
+        <a href="${process.env.FRONTEND_URL}/reset-password/${rawToken}">👉 Redefinir minha senha!</a>
         <p>Este link expira em 15 minutos!</p>`,
       );
     } catch (error) {
@@ -184,14 +184,13 @@ export class UserService {
     //diminuir intervalo entre tratativas no banco, evitando dupla solicitação com mesmo token
     const newPasswordHash = await hash(newPassword, 10);
 
-    //Faz update no used para true e valida se existe na mesma chamada
-    //Por ser a primeira coisa feita, isso vai evitar dupla solicitação
-    const usedToken = await this.repository.updatePasswordResetToken({
+    //Valida e marca o token como usado na mesma chamada: só passa se ele existe,
+    //não foi usado e não expirou. Por ser a primeira coisa feita, evita dupla solicitação
+    const tokenWasValid = await this.repository.markPasswordResetTokenAsUsed({
       hashedToken: hashedToken,
     });
 
-    // Valida o token
-    if (!usedToken) {
+    if (!tokenWasValid) {
       throw new BadRequestError("Token inválido ou expirado!");
     }
 

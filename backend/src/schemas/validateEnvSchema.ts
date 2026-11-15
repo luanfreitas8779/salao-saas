@@ -8,6 +8,8 @@ const envSchema = z.object({
   EMAIL_USER: z.string().min(1),
   EMAIL_PASS: z.string().min(1),
   JWT_SECRET: z.string().min(1),
+  //Endereço do front-end; o link do e-mail de recuperação abre uma página dele
+  FRONTEND_URL: z.url(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
