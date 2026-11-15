@@ -13,8 +13,12 @@ const phoneSchema = z
 export const createUserSchema = z.object({
   body: z.object({
     name: z
-      .string()
-      .min(10, { message: "O nome precisa ter no mínimo 10 caracteres" }),
+      .string({message: "Formato inválido."})
+      .transform((val) => val.trim())
+      .pipe(
+        z.string()
+        .min(10, { message: "O nome precisa ter no mínimo 10 caracteres" })
+      ),
     email: z.email({ message: "Precisa ser um email válido" }),
     phone: phoneSchema,
     password: z

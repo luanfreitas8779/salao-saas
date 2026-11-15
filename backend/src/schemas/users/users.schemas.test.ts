@@ -84,9 +84,14 @@ describe("createUserSchema", () => {
     expect(mensagens(resultado)).toContain("O nome precisa ter no mínimo 10 caracteres");
   });
 
-  // Pendência da trilha de testes: hoje o schema aceita 10 espaços como nome.
-  // Ao corrigir o schema, troque o `todo` por um teste de verdade.
-  it.todo("recusa nome formado só por espaços");
+
+  it("recusa nome formado só por espaços", () => {
+    const resultado = createUserSchema.safeParse({
+      body: { ...valido, name: "          "}
+    });
+
+    expect(mensagens(resultado)).toContain("O nome precisa ter no mínimo 10 caracteres")
+  });
 
   it("recusa email inválido e senha curta, apontando os dois problemas", () => {
     const resultado = createUserSchema.safeParse({

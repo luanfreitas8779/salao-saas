@@ -10,7 +10,6 @@ import {
   BadRequestError,
   ForbiddenError,
   NotFoundError,
-  UnauthorizedError,
 } from "../../errors/app-error";
 import { businessDateTime } from "../../utils/businessTime";
 
@@ -292,8 +291,6 @@ describe("AppointmentService.createAppointment", () => {
   it("barra o cliente comum que tenta agendar em nome de outra pessoa", async () => {
     prepararCaminhoFeliz();
 
-    // Atenção: aqui o código lança 401 (UnauthorizedError). No cancelamento,
-    // a mesma situação ("mexer no que é de outro") lança 403 (ForbiddenError).
     await expect(
       service.createAppointment({
         start_time: INICIO_VALIDO,
@@ -302,7 +299,7 @@ describe("AppointmentService.createAppointment", () => {
         procedure_id: PROCEDIMENTO_ID,
         client_id: "outro-cliente",
       }),
-    ).rejects.toBeInstanceOf(UnauthorizedError);
+    ).rejects.toBeInstanceOf(ForbiddenError);
     expect(userRepository.findUserById).not.toHaveBeenCalled();
     expect(appointmentRepository.createAppointment).not.toHaveBeenCalled();
   });

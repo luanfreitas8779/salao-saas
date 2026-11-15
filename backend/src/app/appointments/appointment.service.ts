@@ -2,7 +2,6 @@ import {
   BadRequestError,
   ForbiddenError,
   NotFoundError,
-  UnauthorizedError,
 } from "../../errors/app-error";
 import { Appointments } from "../../generated/prisma/client";
 import { ProcedureRepository } from "../procedures/procedure.repository";
@@ -218,7 +217,7 @@ export class AppointmentService {
     let resolvedClientId = actor_id;
     if (client_id && client_id !== actor_id) {
       if (!isAdminRole(actor_role)) {
-        throw new UnauthorizedError(
+        throw new ForbiddenError(
           "Sem permissão para agendar em nome de outro cliente",
         );
       }
