@@ -1,5 +1,5 @@
 import prismaClient from "../../prisma";
-import { Appointments, Prisma } from "../../generated/prisma/client";
+import { Appointments } from "../../generated/prisma/client";
 import { ConflictError } from "../../errors/app-error";
 
 interface GetAppointmentsOnDayProps {
@@ -58,12 +58,21 @@ const appointmentRelations = {
   },
 } as const;
 
-function isOverlapConstraintError(error: unknown): boolean {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    return error.code === "P2004" || error.code === "P2034";
-  }
+const OVERLAP_MESSAGE =
+  "Erro: Já existe um agendamento neste horário, atualize a página e tente novamente!";
 
-  return error instanceof Error && /23P01|exclusion|could not serialize/i.test(error.message);
+//Quem impede dois agendamentos no mesmo horário é o banco, com a constraint
+//appointments_no_overlap (ver a migration 20261010195200). Ela é conferida
+//dentro do próprio INSERT/UPDATE, de forma atômica: de duas requisições
+//simultâneas, uma grava e a outra recebe o erro 23P01 (exclusion_violation).
+//Com o @prisma/adapter-pg, o código do Postgres chega em error.cause.code.
+//Não usamos a mensagem: ela muda com o idioma configurado no Postgres.
+function isOverlapConstraintError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const { cause } = error as Error & { cause?: { code?: unknown } };
+  return cause?.code === "23P01";
 }
 
 export class AppointmentRepository {
@@ -111,43 +120,19 @@ export class AppointmentRepository {
     procedure_id,
   }: CreateAppointmentProps): Promise<Appointments> {
     try {
-      return await prismaClient.$transaction(
-        async (tx) => {
-          const conflictingAppointment = await tx.appointments.findFirst({
-            where: {
-              status: { not: "CANCELLED" },
-              start_time: { lt: end_time },
-              end_time: { gt: start_time },
-            },
-          });
-
-          if (conflictingAppointment) {
-            throw new ConflictError(
-              "Erro: Já existe um agendamento neste horário, atualize a página e tente novamente!",
-            );
-          }
-
-          return tx.appointments.create({
-            data: {
-              start_time,
-              end_time,
-              observation,
-              client_id,
-              procedure_id,
-            },
-            include: appointmentRelations,
-          });
+      return await prismaClient.appointments.create({
+        data: {
+          start_time,
+          end_time,
+          observation,
+          client_id,
+          procedure_id,
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
+        include: appointmentRelations,
+      });
     } catch (error) {
-      if (error instanceof ConflictError) {
-        throw error;
-      }
       if (isOverlapConstraintError(error)) {
-        throw new ConflictError(
-          "Erro: Já existe um agendamento neste horário, atualize a página e tente novamente!",
-        );
+        throw new ConflictError(OVERLAP_MESSAGE);
       }
       throw error;
     }
@@ -204,45 +189,20 @@ export class AppointmentRepository {
     procedure_id,
   }: UpdateAppointmentProps) {
     try {
-      return await prismaClient.$transaction(
-        async (tx) => {
-          const conflictingAppointment = await tx.appointments.findFirst({
-            where: {
-              id: { not: id },
-              status: { not: "CANCELLED" },
-              start_time: { lt: end_time },
-              end_time: { gt: start_time },
-            },
-          });
-
-          if (conflictingAppointment) {
-            throw new ConflictError(
-              "Erro: Já existe um agendamento neste horário, atualize a página e tente novamente!",
-            );
-          }
-
-          return tx.appointments.update({
-            where: { id },
-            data: {
-              start_time,
-              end_time,
-              observation,
-              procedure_id,
-              status: "SCHEDULED",
-            },
-            include: appointmentRelations,
-          });
+      return await prismaClient.appointments.update({
+        where: { id },
+        data: {
+          start_time,
+          end_time,
+          observation,
+          procedure_id,
+          status: "SCHEDULED",
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
+        include: appointmentRelations,
+      });
     } catch (error) {
-      if (error instanceof ConflictError) {
-        throw error;
-      }
       if (isOverlapConstraintError(error)) {
-        throw new ConflictError(
-          "Erro: Já existe um agendamento neste horário, atualize a página e tente novamente!",
-        );
+        throw new ConflictError(OVERLAP_MESSAGE);
       }
       throw error;
     }

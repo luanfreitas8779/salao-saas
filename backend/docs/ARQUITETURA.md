@@ -130,7 +130,8 @@ Novos módulos devem seguir o mesmo formato.
 
 - Classe sem estado, com métodos `async` que recebem objeto tipado por interface `...Props`.
 - Retorna tipos gerados do Prisma (`Promise<Procedures | null>`).
-- Operações críticas usam `$transaction` (ex.: criação de agendamento com isolamento `Serializable`) e convertem erro do banco em `ConflictError`.
+- Criar/editar agendamento é um `create`/`update` direto: a constraint `appointments_no_overlap` recusa a sobreposição dentro da própria gravação, e o repository converte o código `23P01` (lido em `error.cause.code`, que vem do `@prisma/adapter-pg`) em `ConflictError` (409). Não há pré-checagem na aplicação: ela teria uma janela entre a leitura e a escrita.
+- Operações com várias escritas que precisam ser "tudo ou nada" usam `$transaction` (ex.: horário de funcionamento, edição de procedimento).
 
 ### Tratamento de erros
 
