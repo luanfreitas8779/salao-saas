@@ -91,10 +91,15 @@ npm run dev                 # sobe em http://localhost:3333
 
 ```bash
 cd backend
-npm test
+npm test          # unitários: rápidos, sem banco
+npm run test:int  # integração: repositories contra um Postgres de teste de verdade
 ```
 
-Hoje existem testes unitários do serviço de usuários, com os repositories simulados. Os próximos estão listados no roadmap.
+Os testes de integração precisam de um banco separado, que é **apagado a cada teste**:
+
+1. Crie o banco no Postgres (ex.: `salaoregina_test`). O nome precisa terminar em `_test`: os testes conferem isso antes de apagar qualquer coisa.
+2. Copie `backend/.env.test.example` para `backend/.env.test` e ajuste o `DATABASE_URL`.
+3. Rode `npm run test:int`. As migrations são aplicadas no banco de teste automaticamente.
 
 ## Como este projeto foi construído
 

@@ -6,8 +6,9 @@ import { ConflictError } from "../../errors/app-error";
 
 // Quem impede a sobreposição é a constraint appointments_no_overlap, no banco.
 // Este teste NÃO prova a constraint (o Prisma aqui é falso): ele prova que o
-// repository traduz o erro do banco (23P01) para ConflictError e deixa
-// qualquer outro erro passar sem mudança.
+// repository traduz o erro do banco (23P01) para ConflictError, repete a
+// gravação após um deadlock (40P01) e deixa qualquer outro erro passar.
+// A constraint de verdade é testada no appointment.repository.int.test.ts.
 
 vi.mock("../../prisma", () => ({
   default: {
@@ -67,6 +68,40 @@ describe("AppointmentRepository.createAppointment", () => {
     await expect(repository.createAppointment(novoAgendamento)).rejects.toBe(
       chaveEstrangeira,
     );
+    expect(create).toHaveBeenCalledTimes(1); // erro comum não é repetido
+  });
+
+  // Deadlock (40P01): duas gravações simultâneas esperam uma pela outra e o
+  // Postgres cancela uma. A cancelada é repetida, e na repetição o resultado
+  // volta a ser o normal.
+  it("repete a gravação após um deadlock e devolve o agendamento se ela passar", async () => {
+    create
+      .mockRejectedValueOnce(erroDoBanco("40P01"))
+      .mockResolvedValueOnce({ id: "appointment-id-1" } as never);
+
+    await expect(repository.createAppointment(novoAgendamento)).resolves.toEqual({
+      id: "appointment-id-1",
+    });
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("repete após um deadlock e lança ConflictError se a repetição achar o horário ocupado", async () => {
+    create
+      .mockRejectedValueOnce(erroDoBanco("40P01"))
+      .mockRejectedValueOnce(erroDoBanco("23P01"));
+
+    await expect(repository.createAppointment(novoAgendamento)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("desiste depois de 3 tentativas com deadlock e deixa o erro passar", async () => {
+    const deadlock = erroDoBanco("40P01");
+    create.mockRejectedValue(deadlock);
+
+    await expect(repository.createAppointment(novoAgendamento)).rejects.toBe(deadlock);
+    expect(create).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -84,5 +119,16 @@ describe("AppointmentRepository.updateAppointment", () => {
     update.mockRejectedValue(erro);
 
     await expect(repository.updateAppointment(edicao)).rejects.toBe(erro);
+  });
+
+  it("repete a edição após um deadlock", async () => {
+    update
+      .mockRejectedValueOnce(erroDoBanco("40P01"))
+      .mockResolvedValueOnce({ id: "appointment-id-1" } as never);
+
+    await expect(repository.updateAppointment(edicao)).resolves.toEqual({
+      id: "appointment-id-1",
+    });
+    expect(update).toHaveBeenCalledTimes(2);
   });
 });

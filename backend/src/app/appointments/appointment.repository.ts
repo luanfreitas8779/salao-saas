@@ -64,15 +64,45 @@ const OVERLAP_MESSAGE =
 //Quem impede dois agendamentos no mesmo horário é o banco, com a constraint
 //appointments_no_overlap (ver a migration 20261010195200). Ela é conferida
 //dentro do próprio INSERT/UPDATE, de forma atômica: de duas requisições
-//simultâneas, uma grava e a outra recebe o erro 23P01 (exclusion_violation).
+//simultâneas, uma grava e a outra é recusada.
+//
+//A recusa pode chegar de dois jeitos:
+//  - 23P01 (exclusion_violation): o caso comum, vira ConflictError (409).
+//  - 40P01 (deadlock): quando as duas gravações chegam juntas, cada uma espera
+//    a outra terminar para saber se há conflito, e o Postgres cancela uma delas.
+//    A cancelada é repetida (withDeadlockRetry). Na nova tentativa a outra já
+//    terminou, e o resultado volta a ser o normal: grava, ou recebe 23P01.
+//
 //Com o @prisma/adapter-pg, o código do Postgres chega em error.cause.code.
 //Não usamos a mensagem: ela muda com o idioma configurado no Postgres.
-function isOverlapConstraintError(error: unknown): boolean {
+const OVERLAP_ERROR_CODE = "23P01";
+const DEADLOCK_ERROR_CODE = "40P01";
+const MAX_ATTEMPTS = 3;
+
+function postgresErrorCode(error: unknown): unknown {
   if (!(error instanceof Error)) {
-    return false;
+    return undefined;
   }
   const { cause } = error as Error & { cause?: { code?: unknown } };
-  return cause?.code === "23P01";
+  return cause?.code;
+}
+
+function isOverlapConstraintError(error: unknown): boolean {
+  return postgresErrorCode(error) === OVERLAP_ERROR_CODE;
+}
+
+async function withDeadlockRetry<T>(operation: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      const isDeadlock = postgresErrorCode(error) === DEADLOCK_ERROR_CODE;
+      if (isDeadlock && attempt < MAX_ATTEMPTS) {
+        continue;
+      }
+      throw error;
+    }
+  }
 }
 
 export class AppointmentRepository {
@@ -120,16 +150,18 @@ export class AppointmentRepository {
     procedure_id,
   }: CreateAppointmentProps): Promise<Appointments> {
     try {
-      return await prismaClient.appointments.create({
-        data: {
-          start_time,
-          end_time,
-          observation,
-          client_id,
-          procedure_id,
-        },
-        include: appointmentRelations,
-      });
+      return await withDeadlockRetry(() =>
+        prismaClient.appointments.create({
+          data: {
+            start_time,
+            end_time,
+            observation,
+            client_id,
+            procedure_id,
+          },
+          include: appointmentRelations,
+        }),
+      );
     } catch (error) {
       if (isOverlapConstraintError(error)) {
         throw new ConflictError(OVERLAP_MESSAGE);
@@ -189,17 +221,19 @@ export class AppointmentRepository {
     procedure_id,
   }: UpdateAppointmentProps) {
     try {
-      return await prismaClient.appointments.update({
-        where: { id },
-        data: {
-          start_time,
-          end_time,
-          observation,
-          procedure_id,
-          status: "SCHEDULED",
-        },
-        include: appointmentRelations,
-      });
+      return await withDeadlockRetry(() =>
+        prismaClient.appointments.update({
+          where: { id },
+          data: {
+            start_time,
+            end_time,
+            observation,
+            procedure_id,
+            status: "SCHEDULED",
+          },
+          include: appointmentRelations,
+        }),
+      );
     } catch (error) {
       if (isOverlapConstraintError(error)) {
         throw new ConflictError(OVERLAP_MESSAGE);
