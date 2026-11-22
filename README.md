@@ -105,7 +105,9 @@ Os testes de integração e de API precisam de um banco separado, que é **apaga
 
 ## Como este projeto foi construído
 
-Defini a arquitetura, as regras de negócio e o comportamento esperado de cada módulo, e usei IA para acelerar a implementação, revisando e testando o resultado. Os testes eu escrevo à mão, porque é a forma de confirmar que o código faz o que deveria.
+O código foi escrito com IA. As decisões são minhas: defini a arquitetura, as regras de negócio e o comportamento esperado de cada módulo, escolhi entre as alternativas propostas (por exemplo, como tratar a concorrência entre agendamentos) e revisei o que foi gerado antes de aceitar.
+
+Os testes seguem a mesma lógica: a maior parte foi escrita com IA e revisada por mim, e alguns eu escrevi à mão, como os das classes de erro e parte dos testes de validação dos schemas. Rodar os testes contra um banco de verdade foi o que revelou problemas que os testes unitários não pegavam, como o deadlock entre agendamentos simultâneos e as rotas que respondiam 500 no Express 5.
 
 ## Limitações conhecidas
 
