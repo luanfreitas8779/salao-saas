@@ -80,6 +80,24 @@ describe("validateSchema", () => {
     });
   });
 
+  it("funciona com o req.query só de leitura do Express 5", async () => {
+    // No Express 5 o req.query é um getter: `req.query = ...` lança TypeError.
+    // Um objeto comum (como o criarReq) esconde esse problema; este imita o Express.
+    const req = criarReq({});
+    Object.defineProperty(req, "query", {
+      get: () => ({ procedure_id: "3f1c9a52-8c4e-4f7a-9d2b-6a1e5c7b8d90", date: "2099-01-05" }),
+      configurable: true,
+    });
+
+    await validateSchema(appointmentAvailabilitySchema)(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.query).toEqual({
+      procedure_id: "3f1c9a52-8c4e-4f7a-9d2b-6a1e5c7b8d90",
+      date: "2099-01-05",
+    });
+  });
+
   it("lança ValidationError e não chama o next quando a entrada é inválida", async () => {
     const req = criarReq({ body: { email: "sem-arroba", password: "senha123" } });
 

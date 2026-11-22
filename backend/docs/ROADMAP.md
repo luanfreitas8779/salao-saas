@@ -21,6 +21,8 @@ Detalhes técnicos do que existe: [ARQUITETURA.md](ARQUITETURA.md).
 - [x] Correção do horário de funcionamento (atualização em lote por dia), dos bloqueios (datas completas, conflito, `this`) e do seed (senha com hash)
 - [x] Padronização: erros (401/403/409/429), ordem dos middlewares, estilo do módulo `user`
 - [x] Testes de integração dos repositories contra um Postgres de teste (`npm run test:int`), incluindo a corrida de agendamentos simultâneos
+- [x] Testes de API (supertest) de todas as rotas: permissões, validação, fluxo de recuperação de senha e rate limiter
+- [x] Correção: rotas que validam a query (`/appointments/slots`, `/appointments/board`) davam 500 no Express 5 (`req.query` é só leitura)
 - [x] Recuperação de senha: link do e-mail usa `FRONTEND_URL`; token de reset só vale uma vez e dentro dos 15 minutos
 - [x] Testes unitários (Vitest) de services, middlewares, schemas Zod e `businessTime`: disponibilidade, regras de agendamento, cancelamento/edição (24h) e autorização
 

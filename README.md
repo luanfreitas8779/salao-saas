@@ -91,11 +91,13 @@ npm run dev                 # sobe em http://localhost:3333
 
 ```bash
 cd backend
-npm test          # unitários: rápidos, sem banco
-npm run test:int  # integração: repositories contra um Postgres de teste de verdade
+npm test          # unitários: rápidos, sem banco (services, controllers, middlewares, schemas)
+npm run test:int  # integração e API: repositories e rotas HTTP contra um Postgres de teste de verdade
 ```
 
-Os testes de integração precisam de um banco separado, que é **apagado a cada teste**:
+Os testes de API usam o `supertest` para fazer requisições HTTP de verdade no app (rota, middlewares, permissões, validação, handler de erro e banco), sem abrir uma porta.
+
+Os testes de integração e de API precisam de um banco separado, que é **apagado a cada teste**:
 
 1. Crie o banco no Postgres (ex.: `salaoregina_test`). O nome precisa terminar em `_test`: os testes conferem isso antes de apagar qualquer coisa.
 2. Copie `backend/.env.test.example` para `backend/.env.test` e ajuste o `DATABASE_URL`.
@@ -108,9 +110,8 @@ Defini a arquitetura, as regras de negócio e o comportamento esperado de cada m
 ## Limitações conhecidas
 
 - Ainda não há frontend.
-- Cobertura de testes pequena: faltam testes do motor de disponibilidade e um teste de integração com PostgreSQL real para agendamentos simultâneos.
+- Os testes de integração e de API precisam de um Postgres de teste configurado à mão (ver a seção Testes).
 - Sem CI e sem Docker.
-- O link do e-mail de recuperação de senha está fixo em `localhost`.
 - CORS aberto e token com validade de 30 dias.
 
 ## Licença
