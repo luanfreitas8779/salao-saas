@@ -18,7 +18,8 @@ Especificação original: `Documento de Arquitetura e Engenharia_ Software de Ag
 ## Estrutura de pastas (`backend/src`)
 
 ```
-server.ts                 Bootstrap Express, montagem das rotas, handler global de erros
+app.ts                    Monta o Express: middlewares, rotas e handler global de erros (exporta o app)
+server.ts                 Valida o env e liga o servidor (app.listen)
 routes/                   Definição de rotas (uma por módulo) + middlewares + schemas
 app/<modulo>/             controller → service → repository (+ factory que injeta as dependências)
   appointments/ procedures/ scheduleBlocks/ user/ workingHours/
@@ -149,7 +150,7 @@ Novos módulos devem seguir o mesmo formato.
 | `InternalServerError` | 500 |
 
 - Em services, repositories e middlewares: `throw new XError("mensagem em português")`. Nunca `throw new Error(...)`.
-- O handler global em `server.ts` responde `{ message }` com o `statusCode` (`ValidationError` acrescenta `details`); rate limiters e `validateSchema` também passam por ele; erro que não é `AppError` vira 500 com "Internal Server Error".
+- O handler global (`src/middlewares/errorHandler.ts`, registrado no `app.ts`) responde `{ message }` com o `statusCode` (`ValidationError` acrescenta `details`); rate limiters e `validateSchema` também passam por ele; erro que não é `AppError` vira 500 com "Internal Server Error".
 - Relançar o erro original (`throw error`) só é aceitável quando ele já é um `AppError` ou será tratado acima.
 
 ### Nomenclatura
