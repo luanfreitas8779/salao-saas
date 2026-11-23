@@ -12,7 +12,8 @@ Backend em `backend/` (Node, TypeScript, Express 5, Prisma 7, PostgreSQL, Zod). 
 - `npx prisma migrate dev` / `npx prisma generate` — banco e client (`src/generated/prisma`, não editar)
 
 ## Convenções
-- Fluxo por módulo: `routes → validateSchema → isAuthenticated/isAdmin → controller → service → repository`; dependências montadas na `*.factory.ts`.
+- Fluxo por módulo: `routes → isAuthenticated/isProf → validateSchema → controller → service → repository`; dependências montadas na `*.factory.ts`.
+- Papéis: `CLIENT` e `PROF` (profissional do salão).
 - Regra de negócio no service; Prisma só no repository.
 - Erros via classes de `src/errors/app-error.ts`; entrada validada com Zod em `src/schemas/`.
 - Variáveis de ambiente só via `src/schemas/validateEnvSchema.ts`.

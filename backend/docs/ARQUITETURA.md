@@ -23,7 +23,7 @@ server.ts                 Valida o env e liga o servidor (app.listen)
 routes/                   Definição de rotas (uma por módulo) + middlewares + schemas
 app/<modulo>/             controller → service → repository (+ factory que injeta as dependências)
   appointments/ procedures/ scheduleBlocks/ user/ workingHours/
-middlewares/              isAuthenticated, isAdmin, validateSchema, rate limiters
+middlewares/              isAuthenticated, isProf, validateSchema, errorHandler, rate limiters
 schemas/<modulo>/         Schemas Zod de entrada
 errors/app-error.ts       AppError e subclasses (BadRequest, NotFound, Conflict, Forbidden, Unauthorized)
 config/mailer.ts          Transporte de e-mail
@@ -33,14 +33,14 @@ generated/prisma/         Client gerado (não editar)
 @types/express/           Extensão de Request (user_id, user_role)
 ```
 
-Padrão por módulo: `route → validateSchema → isAuthenticated/isAdmin → controller → service → repository → Prisma`.
+Padrão por módulo: `route → isAuthenticated/isProf → validateSchema → controller → service → repository → Prisma`.
 Regras de negócio ficam no **service**; acesso a dados no **repository**; **factory** monta as dependências.
 
 ## Modelo de dados (`prisma/schema.prisma`)
 
 | Tabela | Campos principais |
 |---|---|
-| `users` | id (uuid), name, email (único), phone (único), password_hash, role (`CLIENT`\|`ADMIN`) |
+| `users` | id (uuid), name, email (único), phone (único), password_hash, role (`CLIENT`\|`PROF`), token_version, must_change_password |
 | `procedures` | id, name, description, price (Int), duration_minutes, is_active (soft-delete) |
 | `appointments` | id, client_id, procedure_id, start_time, end_time, observation?, status (`SCHEDULED`\|`CANCELLED`\|`COMPLETED`), createdAt |
 | `schedule_blocks` | id, start_time, end_time, reason?, createdAt |
@@ -54,38 +54,54 @@ sobrepostos não cancelados — é a trava atômica contra corrida entre dois cl
 
 Prefixo `/api`. Auth = `Authorization: Bearer <JWT>`.
 
+**Documentação interativa (Swagger):** `GET /api/docs` (página) e `GET /api/docs.json` (OpenAPI 3.1). O documento fica em `src/docs/openapi.ts`: corpo, query e parâmetros de rota são gerados dos mesmos schemas do Zod usados no `validateSchema` (`z.toJSONSchema` com `io: "input"`); as respostas são descritas à mão. O `src/docs/openapi.test.ts` compara o documento com as rotas reais do Express (tabela `apiRoutes` do `app.ts`): rota nova sem documentação, rota removida ou token documentado errado deixam o teste vermelho.
+
+**Formato das respostas:** o corpo de sucesso é sempre o próprio dado (objeto ou lista), sem chave em volta; o status HTTP indica o resultado. Respostas que são só uma mensagem usam `{ message }`, o mesmo formato dos erros (`{ message }`, e `{ message, details }` na validação).
+
 | Método e rota | Permissão | Função |
 |---|---|---|
 | `POST /auth/register` | Público | Cadastra cliente |
 | `POST /auth/login` | Público (rate limit) | Retorna JWT |
 | `POST /auth/recover` | Público (rate limit) | Envia token de reset por e-mail |
 | `POST /auth/reset-password/:token` | Público | Redefine senha (`newPassword` no body) |
+| `GET /users?search=` | Prof | Busca clientes por nome, e-mail ou telefone (mín. 2 caracteres; até 20; sem profissionais; só `id`, `name`, `email`, `phone`) |
 | `GET /users/profile` | Autenticado | Dados do usuário |
 | `PATCH /users/profile` | Autenticado | Atualiza perfil |
 | `GET /procedures` | Público | Procedimentos ativos |
-| `GET /procedures/all` | Admin | Todos os procedimentos |
-| `POST /procedures` | Admin | Cria |
-| `PUT /procedures/:id` | Admin | Edita |
-| `DELETE /procedures/:id` | Admin | Soft-delete |
-| `PUT /working-hours` | Admin | Atualiza horário de funcionamento (`newData`: lista de `{ day, start_time, end_time, break_start?, break_end?, isOpen }`) |
-| `POST /schedule-blocks` | Admin | Cria bloqueio (`start_time`/`end_time` ISO, `reason`); recusa se houver bloqueio ou agendamento no intervalo |
+| `GET /procedures/all` | Prof | Todos os procedimentos |
+| `POST /procedures` | Prof | Cria |
+| `PUT /procedures/:id` | Prof | Edita |
+| `DELETE /procedures/:id` | Prof | Soft-delete |
+| `GET /working-hours` | Público | Expediente de cada dia, de domingo (0) a sábado (6) |
+| `PUT /working-hours` | Prof | Atualiza horário de funcionamento (`newData`: lista de `{ day, start_time, end_time, break_start?, break_end?, isOpen }`) |
+| `GET /schedule-blocks` | Prof | Bloqueios do período (`start_date`, `end_date`), em ordem de início |
+| `POST /schedule-blocks` | Prof | Cria bloqueio (`start_time`/`end_time` ISO, `reason`); recusa se houver bloqueio ou agendamento no intervalo |
+| `PUT /schedule-blocks/:id` | Prof | Edita bloqueio, com as mesmas regras da criação (o próprio bloqueio não conta como conflito) |
+| `DELETE /schedule-blocks/:id` | Prof | Remove bloqueio |
 | `GET /appointments/slots` | Autenticado | Slots livres (`procedure_id`, `date`) |
-| `POST /appointments` | Autenticado | Cria agendamento (admin pode informar `client_id`) |
+| `POST /appointments` | Autenticado | Cria agendamento (o profissional pode informar `client_id`) |
 | `GET /appointments/me` | Autenticado | Agendamentos do cliente |
-| `GET /appointments/board` | Admin | Grade por período |
-| `PATCH /appointments/:id/cancel` | Autenticado | Cancela (cliente: mín. 24h de antecedência) |
-| `PATCH /appointments/:id` | Autenticado | Edita (cliente: mín. 24h de antecedência) |
+| `GET /appointments/board` | Prof | Grade por período |
+| `PATCH /appointments/:id/complete` | Prof | Marca como atendido (só depois do início; não vale para cancelado) |
+| `PATCH /appointments/:id/cancel` | Autenticado | Cancela (cliente: mín. 24h de antecedência; concluído não pode ser cancelado) |
+| `PATCH /appointments/:id` | Autenticado | Edita (cliente: mín. 24h de antecedência; concluído não pode ser editado) |
 
 ## Regras de negócio implementadas
 
 - **Disponibilidade**: duração do procedimento + expediente do dia + pausa + agendamentos + bloqueios; passo de 30 min; horários já passados não aparecem.
 - **Validação ao agendar/editar**: horário futuro, dia aberto, dentro do expediente, fora da pausa e alinhado à grade de 30 min a partir da abertura (`assertWithinBusinessRules`).
 - **Fuso**: horários do salão são `America/Sao_Paulo` (UTC-3 fixo, sem horário de verão), centralizados em `src/utils/businessTime.ts`.
-- **Cancelar/editar**: cliente só nos próprios agendamentos e com ≥ 24h (constante `MIN_LEAD_TIME_HOURS`); admin sem restrição de prazo.
+- **Papéis**: `CLIENT` (cliente) e `PROF` (profissional do salão). O middleware `isProf` libera as rotas do profissional.
+- **Cancelar/editar**: cliente só nos próprios agendamentos e com ≥ 24h (constante `MIN_LEAD_TIME_HOURS`); profissional sem restrição de prazo. Concluído não pode ser cancelado nem editado.
+- **Token único**: `users.token_version` aumenta a cada login e a cada troca de senha; o JWT guarda a versão (`ver`) e o `isAuthenticated` confere no banco. Versão diferente = token revogado (401 "Sessão encerrada"). O papel do usuário também vem do banco a cada requisição.
+- **Primeiro acesso**: com `users.must_change_password`, o `isAuthenticated` responde 403 em tudo; só o `PATCH /users/profile` usa o `isAuthenticatedAllowingPasswordChange`. Trocar a senha desliga o campo.
+- **Paginação**: `/appointments/me` por offset (`page`, `limit` até 100), total no header `X-Total-Count` (exposto no CORS). `/appointments/board` não pagina: o período é limitado a 31 dias.
 - **Procedimento**: nome único; exclusão é lógica (`is_active=false`).
 - **Erros**: handler global devolve `{ message }`; erros não-`AppError` viram 500 genérico.
 
 ## Variáveis de ambiente (`validateEnvSchema.ts`)
+
+Lidas **só** pelo `env` validado (nunca `process.env` direto no código da aplicação). Nos testes, os valores falsos ficam no `vitest.config.mts` e no `vitest.integration.config.mts`.
 
 `DATABASE_URL`, `PORT` (padrão 3333), `EMAIL_USER`, `EMAIL_PASS`, `JWT_SECRET`, `FRONTEND_URL` (sem `/` no final; o link do e-mail de recuperação é `FRONTEND_URL/reset-password/<token>`).
 
@@ -163,7 +179,7 @@ Novos módulos devem seguir o mesmo formato.
 
 ### Middlewares (ordem usada nas rotas)
 
-`rateLimiter` (quando houver) → `isAuthenticated` → `isAdmin` → `validateSchema(schema)` → controller.
+`rateLimiter` (quando houver) → `isAuthenticated` → `isProf` → `validateSchema(schema)` → controller.
 Rotas públicas (sem auth) usam `rateLimiter` → `validateSchema`.
 
 ### Inconsistências conhecidas (ainda não padronizadas)
