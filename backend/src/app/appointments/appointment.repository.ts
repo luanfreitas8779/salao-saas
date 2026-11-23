@@ -26,6 +26,11 @@ interface CreateAppointmentProps {
   procedure_id: string;
 }
 
+interface PaginationProps {
+  skip: number;
+  take: number;
+}
+
 interface BoardRangeProps {
   startDate: Date;
   endDate: Date;
@@ -73,18 +78,36 @@ const OVERLAP_MESSAGE =
 //    A cancelada é repetida (withDeadlockRetry). Na nova tentativa a outra já
 //    terminou, e o resultado volta a ser o normal: grava, ou recebe 23P01.
 //
-//Com o @prisma/adapter-pg, o código do Postgres chega em error.cause.code.
+//Onde o código do Postgres chega depende da versão do @prisma/adapter-pg
+//(formatos capturados do Postgres de verdade):
+//  - 7.8:  Error com o código em error.cause.code
+//  - 7.10: PrismaClientKnownRequestError com os dados do driver em
+//          error.meta.driverAdapterError.cause. Na sobreposição (P2039) vem o
+//          code; no deadlock (P2034, TransactionWriteConflict) só o originalCode.
+//Todos são aceitos. O teste de integração (npm run test:int) é quem avisa se
+//uma atualização do Prisma mudar o formato de novo.
 //Não usamos a mensagem: ela muda com o idioma configurado no Postgres.
 const OVERLAP_ERROR_CODE = "23P01";
 const DEADLOCK_ERROR_CODE = "40P01";
 const MAX_ATTEMPTS = 3;
 
+interface DriverErrorCause {
+  code?: unknown;
+  originalCode?: unknown;
+}
+
+interface PostgresErrorShape {
+  cause?: DriverErrorCause;
+  meta?: { driverAdapterError?: { cause?: DriverErrorCause } };
+}
+
 function postgresErrorCode(error: unknown): unknown {
   if (!(error instanceof Error)) {
     return undefined;
   }
-  const { cause } = error as Error & { cause?: { code?: unknown } };
-  return cause?.code;
+  const { cause, meta } = error as Error & PostgresErrorShape;
+  const driverCause = cause ?? meta?.driverAdapterError?.cause;
+  return driverCause?.code ?? driverCause?.originalCode;
 }
 
 function isOverlapConstraintError(error: unknown): boolean {
@@ -177,21 +200,30 @@ export class AppointmentRepository {
     });
   }
 
-  async findByClientId(client_id: string) {
-    return prismaClient.appointments.findMany({
-      where: { client_id },
-      include: {
-        procedure: {
-          select: {
-            id: true,
-            name: true,
-            duration_minutes: true,
-            price: true,
+  //Uma página dos agendamentos do cliente e o total (para o front montar a paginação).
+  //A lista e a contagem vão na mesma transação, para o total bater com a lista.
+  async findByClientId(client_id: string, { skip, take }: PaginationProps) {
+    const [items, total] = await prismaClient.$transaction([
+      prismaClient.appointments.findMany({
+        where: { client_id },
+        include: {
+          procedure: {
+            select: {
+              id: true,
+              name: true,
+              duration_minutes: true,
+              price: true,
+            },
           },
         },
-      },
-      orderBy: { start_time: "desc" },
-    });
+        orderBy: { start_time: "desc" },
+        skip,
+        take,
+      }),
+      prismaClient.appointments.count({ where: { client_id } }),
+    ]);
+
+    return { items, total };
   }
 
   async findBoard({ startDate, endDate }: BoardRangeProps) {
@@ -209,6 +241,14 @@ export class AppointmentRepository {
     return prismaClient.appointments.update({
       where: { id },
       data: { status: "CANCELLED" },
+      include: appointmentRelations,
+    });
+  }
+
+  async completeAppointment(id: string): Promise<Appointments> {
+    return prismaClient.appointments.update({
+      where: { id },
+      data: { status: "COMPLETED" },
       include: appointmentRelations,
     });
   }

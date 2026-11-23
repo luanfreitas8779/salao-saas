@@ -132,3 +132,64 @@ describe("AppointmentRepository.updateAppointment", () => {
     expect(update).toHaveBeenCalledTimes(2);
   });
 });
+
+// O formato do erro muda entre versões do Prisma. Os dois abaixo foram
+// capturados do Postgres de verdade:
+//   - Prisma 7.8:  Error com o código em error.cause.code
+//   - Prisma 7.10: PrismaClientKnownRequestError (P2039) com o código em
+//                  error.meta.driverAdapterError.cause.code
+function erroDoBancoPrisma710(code: string) {
+  return Object.assign(new Error("Invalid `prisma.appointments.create()` invocation"), {
+    code: "P2039",
+    meta: {
+      modelName: "Appointments",
+      driverAdapterError: { name: "DriverAdapterError", cause: { code, kind: "postgres" } },
+    },
+  });
+}
+
+describe("AppointmentRepository: formato do erro do Prisma 7.10", () => {
+  it("reconhece a sobreposição (23P01) e lança ConflictError", async () => {
+    create.mockRejectedValue(erroDoBancoPrisma710("23P01"));
+
+    await expect(repository.createAppointment(novoAgendamento)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+  });
+
+  it("reconhece o deadlock (40P01) e repete a gravação", async () => {
+    create
+      .mockRejectedValueOnce(erroDoBancoPrisma710("40P01"))
+      .mockResolvedValueOnce({ id: "appointment-id-1" } as never);
+
+    await expect(repository.createAppointment(novoAgendamento)).resolves.toEqual({
+      id: "appointment-id-1",
+    });
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("AppointmentRepository: deadlock no formato do Prisma 7.10", () => {
+  // capturado do Postgres de verdade: no deadlock o Prisma 7.10 classifica o erro
+  // como TransactionWriteConflict (P2034) e só manda o originalCode, sem o code
+  it("reconhece o deadlock pelo originalCode e repete a gravação", async () => {
+    const deadlock = Object.assign(new Error("Transaction failed due to a write conflict or a deadlock"), {
+      code: "P2034",
+      meta: {
+        modelName: "Appointments",
+        driverAdapterError: {
+          name: "DriverAdapterError",
+          cause: { originalCode: "40P01", kind: "TransactionWriteConflict" },
+        },
+      },
+    });
+    create
+      .mockRejectedValueOnce(deadlock)
+      .mockRejectedValueOnce(erroDoBancoPrisma710("23P01"));
+
+    await expect(repository.createAppointment(novoAgendamento)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+});

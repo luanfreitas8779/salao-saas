@@ -27,6 +27,7 @@ const appointmentRepository = {
   createAppointment: vi.fn(),
   cancelAppointment: vi.fn(),
   updateAppointment: vi.fn(),
+  completeAppointment: vi.fn(),
 };
 const procedureRepository = { findProcedureById: vi.fn() };
 const scheduleBlocksRepository = { findConflictingScheduleBlock: vi.fn() };
@@ -48,7 +49,7 @@ const SEGUNDA = 1;
 const UMA_HORA = 60 * 60 * 1000;
 
 const CLIENTE_ID = "client-id-1";
-const ADMIN_ID = "admin-id-1";
+const PROF_ID = "prof-id-1";
 const PROCEDIMENTO_ID = "procedure-id-1";
 
 function horasAPartirDeAgora(horas: number) {
@@ -255,17 +256,17 @@ describe("AppointmentService.createAppointment", () => {
   it("busca o papel do usuário no banco quando ele não vem no token", async () => {
     prepararCaminhoFeliz();
     userRepository.findUserById.mockImplementation(async ({ id }: { id: string }) =>
-      id === ADMIN_ID ? { id: ADMIN_ID, role: "ADMIN" } : { id, role: "CLIENT" },
+      id === PROF_ID ? { id: PROF_ID, role: "PROF" } : { id, role: "CLIENT" },
     );
 
     await service.createAppointment({
       start_time: INICIO_VALIDO,
-      actor_id: ADMIN_ID,
+      actor_id: PROF_ID,
       procedure_id: PROCEDIMENTO_ID,
       client_id: CLIENTE_ID,
     });
 
-    expect(userRepository.findUserById).toHaveBeenCalledWith({ id: ADMIN_ID });
+    expect(userRepository.findUserById).toHaveBeenCalledWith({ id: PROF_ID });
     expect(appointmentRepository.createAppointment).toHaveBeenCalledWith(
       expect.objectContaining({ client_id: CLIENTE_ID }),
     );
@@ -326,8 +327,8 @@ describe("AppointmentService.createAppointment", () => {
 
     await service.createAppointment({
       start_time: INICIO_VALIDO,
-      actor_id: ADMIN_ID,
-      actor_role: "ADMIN",
+      actor_id: PROF_ID,
+      actor_role: "PROF",
       procedure_id: PROCEDIMENTO_ID,
       client_id: CLIENTE_ID,
     });
@@ -345,8 +346,8 @@ describe("AppointmentService.createAppointment", () => {
     await expect(
       service.createAppointment({
         start_time: INICIO_VALIDO,
-        actor_id: ADMIN_ID,
-        actor_role: "ADMIN",
+        actor_id: PROF_ID,
+        actor_role: "PROF",
         procedure_id: PROCEDIMENTO_ID,
         client_id: "nao-existe",
       }),
@@ -438,12 +439,16 @@ describe("AppointmentService.createAppointment", () => {
 });
 
 describe("AppointmentService.listMine / listBoard", () => {
-  it("lista os agendamentos do cliente informado", async () => {
-    const lista = [criarAgendamento()];
-    appointmentRepository.findByClientId.mockResolvedValue(lista);
+  it("lista os agendamentos do cliente, uma página por vez, com o total", async () => {
+    const pagina = { items: [criarAgendamento()], total: 41 };
+    appointmentRepository.findByClientId.mockResolvedValue(pagina);
 
-    await expect(service.listMine(CLIENTE_ID)).resolves.toEqual(lista);
-    expect(appointmentRepository.findByClientId).toHaveBeenCalledWith(CLIENTE_ID);
+    await expect(service.listMine(CLIENTE_ID, { page: 3, limit: 20 })).resolves.toEqual(pagina);
+    // página 3 de 20 em 20: pula os 40 primeiros
+    expect(appointmentRepository.findByClientId).toHaveBeenCalledWith(CLIENTE_ID, {
+      skip: 40,
+      take: 20,
+    });
   });
 
   it("converte o período do quadro para o fuso do salão, incluindo o último dia inteiro", async () => {
@@ -550,8 +555,8 @@ describe("AppointmentService.cancelAppointment", () => {
 
     await service.cancelAppointment({
       appointmentId: "appointment-id-1",
-      actor_id: ADMIN_ID,
-      actor_role: "ADMIN",
+      actor_id: PROF_ID,
+      actor_role: "PROF",
     });
 
     expect(appointmentRepository.cancelAppointment).toHaveBeenCalledWith(
@@ -560,7 +565,7 @@ describe("AppointmentService.cancelAppointment", () => {
   });
 
   it("busca o papel no banco quando ele não vem no token", async () => {
-    userRepository.findUserById.mockResolvedValue({ id: ADMIN_ID, role: "ADMIN" });
+    userRepository.findUserById.mockResolvedValue({ id: PROF_ID, role: "PROF" });
     appointmentRepository.findById.mockResolvedValue(
       criarAgendamento({ client_id: "outro-cliente" }),
     );
@@ -570,10 +575,10 @@ describe("AppointmentService.cancelAppointment", () => {
 
     await service.cancelAppointment({
       appointmentId: "appointment-id-1",
-      actor_id: ADMIN_ID,
+      actor_id: PROF_ID,
     });
 
-    expect(userRepository.findUserById).toHaveBeenCalledWith({ id: ADMIN_ID });
+    expect(userRepository.findUserById).toHaveBeenCalledWith({ id: PROF_ID });
     expect(appointmentRepository.cancelAppointment).toHaveBeenCalledTimes(1);
   });
 });
@@ -781,11 +786,100 @@ describe("AppointmentService.updateAppointment", () => {
 
     await service.updateAppointment({
       appointmentId: "appointment-id-1",
-      actor_id: ADMIN_ID,
-      actor_role: "ADMIN",
+      actor_id: PROF_ID,
+      actor_role: "PROF",
       observation: "Ajuste do admin",
     });
 
+    expect(appointmentRepository.updateAppointment).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AppointmentService.completeAppointment", () => {
+  it("lança NotFoundError quando o agendamento não existe", async () => {
+    appointmentRepository.findById.mockResolvedValue(null);
+
+    await expect(
+      service.completeAppointment({ appointmentId: "nao-existe" }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(appointmentRepository.completeAppointment).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["cancelado", { status: "CANCELLED", start_time: horasAPartirDeAgora(-2) }, "Não é possível concluir um agendamento cancelado"],
+    ["já concluído", { status: "COMPLETED", start_time: horasAPartirDeAgora(-2) }, "Este agendamento já foi concluído"],
+    ["que ainda não começou", { status: "SCHEDULED", start_time: horasAPartirDeAgora(2) }, "Só é possível concluir um agendamento que já começou"],
+  ])("lança BadRequestError e não conclui um agendamento %s", async (_caso, dados, mensagem) => {
+    appointmentRepository.findById.mockResolvedValue(criarAgendamento(dados));
+
+    await expect(
+      service.completeAppointment({ appointmentId: "appointment-id-1" }),
+    ).rejects.toThrow(new BadRequestError(mensagem));
+    expect(appointmentRepository.completeAppointment).not.toHaveBeenCalled();
+  });
+
+  it("conclui um agendamento que já começou", async () => {
+    appointmentRepository.findById.mockResolvedValue(
+      criarAgendamento({ start_time: horasAPartirDeAgora(-1) }),
+    );
+    appointmentRepository.completeAppointment.mockResolvedValue(
+      criarAgendamento({ status: "COMPLETED" }),
+    );
+
+    const resultado = await service.completeAppointment({ appointmentId: "appointment-id-1" });
+
+    expect(resultado.status).toBe("COMPLETED");
+    expect(appointmentRepository.completeAppointment).toHaveBeenCalledWith("appointment-id-1");
+    expect(appointmentRepository.completeAppointment).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AppointmentService: agendamento concluído não volta atrás", () => {
+  it("não deixa cancelar um agendamento concluído, nem o admin", async () => {
+    appointmentRepository.findById.mockResolvedValue(criarAgendamento({ status: "COMPLETED" }));
+
+    await expect(
+      service.cancelAppointment({
+        appointmentId: "appointment-id-1",
+        actor_id: PROF_ID,
+        actor_role: "PROF",
+      }),
+    ).rejects.toThrow(new BadRequestError("Não é possível cancelar um agendamento concluído"));
+    expect(appointmentRepository.cancelAppointment).not.toHaveBeenCalled();
+  });
+
+  it("não deixa editar um agendamento concluído (a edição o faria voltar a SCHEDULED)", async () => {
+    appointmentRepository.findById.mockResolvedValue(criarAgendamento({ status: "COMPLETED" }));
+
+    await expect(
+      service.updateAppointment({
+        appointmentId: "appointment-id-1",
+        actor_id: PROF_ID,
+        actor_role: "PROF",
+        observation: "nova",
+      }),
+    ).rejects.toThrow(new BadRequestError("Não é possível editar um agendamento concluído"));
+    expect(appointmentRepository.updateAppointment).not.toHaveBeenCalled();
+  });
+});
+
+describe("AppointmentService.updateAppointment: papel de quem está agindo", () => {
+  it("busca o papel no banco quando ele não vem no token (como o create e o cancel)", async () => {
+    userRepository.findUserById.mockResolvedValue({ id: PROF_ID, role: "PROF" });
+    appointmentRepository.findById.mockResolvedValue(
+      criarAgendamento({ client_id: "outro-cliente", start_time: horasAPartirDeAgora(1) }),
+    );
+    procedureRepository.findProcedureById.mockResolvedValue(criarProcedimento());
+    scheduleBlocksRepository.findConflictingScheduleBlock.mockResolvedValue([]);
+    appointmentRepository.updateAppointment.mockResolvedValue(criarAgendamento());
+
+    await service.updateAppointment({
+      appointmentId: "appointment-id-1",
+      actor_id: PROF_ID,
+      observation: "Ajuste do profissional",
+    });
+
+    expect(userRepository.findUserById).toHaveBeenCalledWith({ id: PROF_ID });
     expect(appointmentRepository.updateAppointment).toHaveBeenCalledTimes(1);
   });
 });

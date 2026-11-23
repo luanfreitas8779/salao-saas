@@ -186,3 +186,33 @@ describe("AppointmentRepository consultas por período", () => {
     expect(ignorandoEle).toBeNull();
   });
 });
+
+describe("AppointmentRepository.completeAppointment", () => {
+  it("marca como COMPLETED e o horário continua ocupado", async () => {
+    const agendamento = await repository.createAppointment(dadosDoAgendamento("12:00", "13:00"));
+
+    const concluido = await repository.completeAppointment(agendamento.id);
+
+    expect(concluido.status).toBe("COMPLETED");
+    // um agendamento concluído continua ocupando o horário (só CANCELLED libera)
+    await expect(
+      repository.createAppointment(dadosDoAgendamento("12:00", "13:00")),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+});
+
+describe("AppointmentRepository.findByClientId (paginação)", () => {
+  it("devolve a página pedida, do mais recente para o mais antigo, e o total", async () => {
+    for (const hora of ["08:00", "10:00", "12:00", "14:00", "16:00"]) {
+      const [h, m] = hora.split(":");
+      await repository.createAppointment(
+        dadosDoAgendamento(hora, `${String(Number(h) + 1).padStart(2, "0")}:${m}`),
+      );
+    }
+
+    const pagina = await repository.findByClientId(clienteId, { skip: 2, take: 2 });
+
+    expect(pagina.total).toBe(5);
+    expect(pagina.items.map((a) => a.start_time)).toEqual([horario("12:00"), horario("10:00")]);
+  });
+});

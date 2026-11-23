@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import { api, autorizacao, criarAdmin, criarCliente } from "../../test-integration/api";
+import { api, autorizacao, criarProf, criarCliente } from "../../test-integration/api";
 import {
   criarProcedimento,
   limparBanco,
@@ -18,7 +18,7 @@ const AS_14H = "2099-01-05T17:00:00.000Z";
 
 let cliente: Awaited<ReturnType<typeof criarCliente>>;
 let outroCliente: Awaited<ReturnType<typeof criarCliente>>;
-let admin: Awaited<ReturnType<typeof criarAdmin>>;
+let admin: Awaited<ReturnType<typeof criarProf>>;
 let procedimentoId: string;
 
 function agendar(usuario: { id: string; role: string }, corpo: Record<string, unknown>) {
@@ -32,7 +32,7 @@ beforeEach(async () => {
   await limparBanco();
   cliente = await criarCliente();
   outroCliente = await criarCliente();
-  admin = await criarAdmin();
+  admin = await criarProf();
   procedimentoId = (await criarProcedimento({ duration_minutes: 60 })).id;
   // segunda-feira: 08:00–18:00, pausa 12:00–13:00
   await prismaClient.workingHours.create({
@@ -221,6 +221,110 @@ describe("PATCH /api/appointments/:id/cancel e PATCH /api/appointments/:id", () 
     const res = await api()
       .patch("/api/appointments/123/cancel")
       .set("Authorization", autorizacao(cliente));
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("PATCH /api/appointments/:id/complete", () => {
+  // o service não deixa agendar no passado: o agendamento que já aconteceu
+  // é criado direto no banco
+  async function agendamentoQueJaAconteceu() {
+    const inicio = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    return prismaClient.appointments.create({
+      data: {
+        client_id: cliente.id,
+        procedure_id: procedimentoId,
+        start_time: inicio,
+        end_time: new Date(inicio.getTime() + 60 * 60 * 1000),
+      },
+    });
+  }
+
+  it("o admin conclui um agendamento que já aconteceu (200)", async () => {
+    const passado = await agendamentoQueJaAconteceu();
+
+    const res = await api()
+      .patch(`/api/appointments/${passado.id}/complete`)
+      .set("Authorization", autorizacao(admin));
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("COMPLETED");
+  });
+
+  it("o cliente recebe 403, mesmo sendo o dono do agendamento", async () => {
+    const passado = await agendamentoQueJaAconteceu();
+
+    const res = await api()
+      .patch(`/api/appointments/${passado.id}/complete`)
+      .set("Authorization", autorizacao(cliente));
+
+    expect(res.status).toBe(403);
+  });
+
+  it("responde 400 para um agendamento que ainda vai acontecer", async () => {
+    const futuro = await agendar(cliente, { start_time: AS_9H });
+
+    const res = await api()
+      .patch(`/api/appointments/${futuro.body.id}/complete`)
+      .set("Authorization", autorizacao(admin));
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Só é possível concluir um agendamento que já começou");
+  });
+
+  it("depois de concluído, o agendamento não pode mais ser cancelado", async () => {
+    const passado = await agendamentoQueJaAconteceu();
+    await api()
+      .patch(`/api/appointments/${passado.id}/complete`)
+      .set("Authorization", autorizacao(admin));
+
+    const cancela = await api()
+      .patch(`/api/appointments/${passado.id}/cancel`)
+      .set("Authorization", autorizacao(admin));
+
+    expect(cancela.status).toBe(400);
+  });
+});
+
+describe("Paginação de /me e período do /board", () => {
+  it("/me devolve a página pedida no corpo e o total no header X-Total-Count", async () => {
+    await agendar(cliente, { start_time: AS_9H });
+    await agendar(cliente, { start_time: AS_14H });
+
+    const res = await api()
+      .get("/api/appointments/me")
+      .set("Authorization", autorizacao(cliente))
+      .query({ page: 2, limit: 1 });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.headers["x-total-count"]).toBe("2");
+  });
+
+  it("o CORS expõe o X-Total-Count, para o front conseguir ler o total", async () => {
+    const res = await api()
+      .get("/api/appointments/me")
+      .set("Origin", "http://front.teste")
+      .set("Authorization", autorizacao(cliente));
+
+    expect(res.headers["access-control-expose-headers"]).toContain("X-Total-Count");
+  });
+
+  it("/me responde 400 com limit acima de 100", async () => {
+    const res = await api()
+      .get("/api/appointments/me")
+      .set("Authorization", autorizacao(cliente))
+      .query({ limit: 500 });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("/board responde 400 com um período maior que 31 dias", async () => {
+    const res = await api()
+      .get("/api/appointments/board")
+      .set("Authorization", autorizacao(admin))
+      .query({ start_date: "2099-01-01", end_date: "2099-03-01" });
 
     expect(res.status).toBe(400);
   });

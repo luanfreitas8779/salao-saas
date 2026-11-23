@@ -34,8 +34,14 @@ export class AppointmentController {
   };
 
   listMine = async (req: Request, res: Response) => {
-    const result = await this.service.listMine(req.user_id!);
-    res.status(200).json(result);
+    //page e limit já chegam como número: o validateSchema converte e aplica o padrão
+    const { page, limit } = req.query as unknown as { page: number; limit: number };
+
+    const { items, total } = await this.service.listMine(req.user_id!, { page, limit });
+
+    //o corpo continua sendo a lista pura; o total vai no header
+    res.set("X-Total-Count", String(total));
+    res.status(200).json(items);
   };
 
   listBoard = async (req: Request, res: Response) => {
@@ -53,6 +59,14 @@ export class AppointmentController {
       appointmentId: req.params.id as string,
       actor_id: req.user_id!,
       actor_role: req.user_role,
+    });
+
+    res.status(200).json(result);
+  };
+
+  completeAppointment = async (req: Request, res: Response) => {
+    const result = await this.service.completeAppointment({
+      appointmentId: req.params.id as string,
     });
 
     res.status(200).json(result);

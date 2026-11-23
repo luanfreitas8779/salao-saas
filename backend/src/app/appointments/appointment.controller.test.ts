@@ -17,14 +17,16 @@ const service = {
   listBoard: vi.fn(),
   cancelAppointment: vi.fn(),
   updateAppointment: vi.fn(),
+  completeAppointment: vi.fn(),
 };
 
 const controller = new AppointmentController(service as unknown as AppointmentService);
 
 // res.status() devolve o próprio res, para o encadeamento res.status(200).json(...)
 function criarRes() {
-  const res = { status: vi.fn(), json: vi.fn() };
+  const res = { status: vi.fn(), json: vi.fn(), set: vi.fn() };
   res.status.mockReturnValue(res);
+  res.set.mockReturnValue(res);
   return res;
 }
 
@@ -100,8 +102,8 @@ describe("AppointmentController.createAppointment", () => {
         body: {
           start_time: "2099-01-05T12:00:00.000Z",
           procedure_id: PROCEDIMENTO_ID,
-          actor_id: "admin-id-1",
-          actor_role: "ADMIN",
+          actor_id: "prof-id-1",
+          actor_role: "PROF",
         },
       }),
       criarRes() as unknown as Response,
@@ -128,16 +130,17 @@ describe("AppointmentController.createAppointment", () => {
 });
 
 describe("AppointmentController.listMine", () => {
-  it("lista os agendamentos de quem está logado e responde 200", async () => {
-    service.listMine.mockResolvedValue([agendamento]);
+  it("lista a página pedida de quem está logado: a lista no corpo e o total no header", async () => {
+    service.listMine.mockResolvedValue({ items: [agendamento], total: 41 });
     const res = criarRes();
 
     await controller.listMine(
-      criarReq({ user_id: "client-id-1" }),
+      criarReq({ user_id: "client-id-1", query: { page: 3, limit: 20 } as never }),
       res as unknown as Response,
     );
 
-    expect(service.listMine).toHaveBeenCalledWith("client-id-1");
+    expect(service.listMine).toHaveBeenCalledWith("client-id-1", { page: 3, limit: 20 });
+    expect(res.set).toHaveBeenCalledWith("X-Total-Count", "41");
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith([agendamento]);
   });
@@ -213,5 +216,24 @@ describe("AppointmentController.updateAppointment", () => {
     });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(agendamento);
+  });
+});
+
+describe("AppointmentController.completeAppointment", () => {
+  it("conclui o agendamento da URL e responde 200", async () => {
+    const concluido = { ...agendamento, status: "COMPLETED" };
+    service.completeAppointment.mockResolvedValue(concluido);
+    const res = criarRes();
+
+    await controller.completeAppointment(
+      criarReq({ params: { id: "appointment-id-1" } }),
+      res as unknown as Response,
+    );
+
+    expect(service.completeAppointment).toHaveBeenCalledWith({
+      appointmentId: "appointment-id-1",
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(concluido);
   });
 });

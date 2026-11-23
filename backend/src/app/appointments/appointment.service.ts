@@ -42,14 +42,23 @@ interface AppointmentActorProps {
   actor_role?: string;
 }
 
+interface PageProps {
+  page: number;
+  limit: number;
+}
+
+interface AppointmentIdProps {
+  appointmentId: string;
+}
+
 interface UpdateAppointmentProps extends AppointmentActorProps {
   start_time?: string;
   procedure_id?: string;
   observation?: string;
 }
 
-function isAdminRole(role?: string) {
-  return role === "ADMIN";
+function isProfRole(role?: string) {
+  return role === "PROF";
 }
 
 function assertMinLeadTime(startTime: Date) {
@@ -187,6 +196,18 @@ export class AppointmentService {
     }
   }
 
+  //Validação repetida em cancelar, editar e concluir, centralizada em um lugar só
+  private async findAppointmentOrFail(appointmentId: string) {
+    const appointment =
+      await this.appointmentRepository.findById(appointmentId);
+
+    if (!appointment) {
+      throw new NotFoundError("Agendamento não encontrado");
+    }
+
+    return appointment;
+  }
+
   private async resolveActorRole(actor_id: string, actor_role?: string) {
     if (actor_role) {
       return actor_role;
@@ -216,7 +237,7 @@ export class AppointmentService {
 
     let resolvedClientId = actor_id;
     if (client_id && client_id !== actor_id) {
-      if (!isAdminRole(actor_role)) {
+      if (!isProfRole(actor_role)) {
         throw new ForbiddenError(
           "Sem permissão para agendar em nome de outro cliente",
         );
@@ -254,8 +275,12 @@ export class AppointmentService {
     });
   }
 
-  async listMine(client_id: string) {
-    return this.appointmentRepository.findByClientId(client_id);
+  //Paginação por offset: a página 3 de 20 em 20 pula os 40 primeiros
+  async listMine(client_id: string, { page, limit }: PageProps) {
+    return this.appointmentRepository.findByClientId(client_id, {
+      skip: (page - 1) * limit,
+      take: limit,
+    });
   }
 
   async listBoard(start_date: string, end_date: string) {
@@ -271,29 +296,47 @@ export class AppointmentService {
   }: AppointmentActorProps) {
     actor_role = await this.resolveActorRole(actor_id, actor_role);
 
-    const appointment =
-      await this.appointmentRepository.findById(appointmentId);
-
-    if (!appointment) {
-      throw new NotFoundError("Agendamento não encontrado");
-    }
+    const appointment = await this.findAppointmentOrFail(appointmentId);
 
     if (appointment.status === "CANCELLED") {
       throw new BadRequestError("Este agendamento já está cancelado");
     }
 
-    const actorIsAdmin = isAdminRole(actor_role);
-    if (!actorIsAdmin && appointment.client_id !== actor_id) {
+    if (appointment.status === "COMPLETED") {
+      throw new BadRequestError("Não é possível cancelar um agendamento concluído");
+    }
+
+    const actorIsProf = isProfRole(actor_role);
+    if (!actorIsProf && appointment.client_id !== actor_id) {
       throw new ForbiddenError(
         "Você não pode cancelar o agendamento de outro cliente",
       );
     }
 
-    if (!actorIsAdmin) {
+    if (!actorIsProf) {
       assertMinLeadTime(appointment.start_time);
     }
 
     return this.appointmentRepository.cancelAppointment(appointmentId);
+  }
+
+  //Marca como atendido. Só o profissional (PROF) chega aqui (a rota usa o isProf).
+  async completeAppointment({ appointmentId }: AppointmentIdProps) {
+    const appointment = await this.findAppointmentOrFail(appointmentId);
+
+    if (appointment.status === "CANCELLED") {
+      throw new BadRequestError("Não é possível concluir um agendamento cancelado");
+    }
+
+    if (appointment.status === "COMPLETED") {
+      throw new BadRequestError("Este agendamento já foi concluído");
+    }
+
+    if (appointment.start_time > new Date()) {
+      throw new BadRequestError("Só é possível concluir um agendamento que já começou");
+    }
+
+    return this.appointmentRepository.completeAppointment(appointmentId);
   }
 
   async updateAppointment({
@@ -304,25 +347,26 @@ export class AppointmentService {
     procedure_id,
     observation,
   }: UpdateAppointmentProps) {
-    const appointment =
-      await this.appointmentRepository.findById(appointmentId);
+    actor_role = await this.resolveActorRole(actor_id, actor_role);
 
-    if (!appointment) {
-      throw new NotFoundError("Agendamento não encontrado");
-    }
+    const appointment = await this.findAppointmentOrFail(appointmentId);
 
     if (appointment.status === "CANCELLED") {
       throw new BadRequestError("Não é possível editar um agendamento cancelado");
     }
 
-    const actorIsAdmin = isAdminRole(actor_role);
-    if (!actorIsAdmin && appointment.client_id !== actor_id) {
+    if (appointment.status === "COMPLETED") {
+      throw new BadRequestError("Não é possível editar um agendamento concluído");
+    }
+
+    const actorIsProf = isProfRole(actor_role);
+    if (!actorIsProf && appointment.client_id !== actor_id) {
       throw new ForbiddenError(
         "Você não pode editar o agendamento de outro cliente",
       );
     }
 
-    if (!actorIsAdmin) {
+    if (!actorIsProf) {
       assertMinLeadTime(appointment.start_time);
     }
 
@@ -340,7 +384,7 @@ export class AppointmentService {
       : appointment.start_time;
     const newEndTime = addMinutes(newStartTime, procedure.duration_minutes);
 
-    if (!actorIsAdmin && start_time) {
+    if (!actorIsProf && start_time) {
       assertMinLeadTime(newStartTime);
     }
 

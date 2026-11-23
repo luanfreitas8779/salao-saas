@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { listMyAppointmentsSchema } from "../schemas/appointments/listMyAppointmentsSchema";
 import { validateSchema } from "../middlewares/validateSchema";
 import { appointmentAvailabilitySchema } from "../schemas/appointments/appointmentAvailabilitySchema";
 import { isAuthenticated } from "../middlewares/isAuthenticatedMiddleware";
@@ -7,7 +8,7 @@ import { makeAppointmentController } from "../app/appointments/appointment.facto
 import { appointmentBoardSchema } from "../schemas/appointments/appointmentBoardSchema";
 import { appointmentIdParamSchema } from "../schemas/appointments/appointmentIdParamSchema";
 import { updateAppointmentSchema } from "../schemas/appointments/updateAppointmentSchema";
-import { isAdmin } from "../middlewares/isAdmin";
+import { isProf } from "../middlewares/isProf";
 
 const routes = Router();
 const appointmentController = makeAppointmentController();
@@ -26,14 +27,27 @@ routes.post(
   appointmentController.createAppointment,
 );
 
-routes.get("/me", isAuthenticated, appointmentController.listMine);
+routes.get(
+  "/me",
+  isAuthenticated,
+  validateSchema(listMyAppointmentsSchema),
+  appointmentController.listMine,
+);
 
 routes.get(
   "/board",
   isAuthenticated,
-  isAdmin,
+  isProf,
   validateSchema(appointmentBoardSchema),
   appointmentController.listBoard,
+);
+
+routes.patch(
+  "/:id/complete",
+  isAuthenticated,
+  isProf,
+  validateSchema(appointmentIdParamSchema),
+  appointmentController.completeAppointment,
 );
 
 routes.patch(
