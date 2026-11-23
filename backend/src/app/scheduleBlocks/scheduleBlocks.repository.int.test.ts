@@ -44,3 +44,83 @@ describe("ScheduleBlocksRepository.findConflictingScheduleBlock", () => {
     expect(conflitos).toHaveLength(quantidade);
   });
 });
+
+describe("ScheduleBlocksRepository: buscar, listar, editar e remover", () => {
+  async function bloqueioExistente() {
+    const [bloqueio] = await repository.findConflictingScheduleBlock({
+      start_time: horario("12:00"),
+      end_time: horario("14:00"),
+    });
+    return bloqueio!;
+  }
+
+  it("findConflictingScheduleBlock ignora o bloqueio informado em excludeId", async () => {
+    const existente = await bloqueioExistente();
+
+    const conflitos = await repository.findConflictingScheduleBlock({
+      start_time: horario("12:30"),
+      end_time: horario("13:30"),
+      excludeId: existente.id,
+    });
+
+    expect(conflitos).toEqual([]);
+  });
+
+  it("findScheduleBlockById acha pelo id e devolve null quando não existe", async () => {
+    const existente = await bloqueioExistente();
+
+    await expect(repository.findScheduleBlockById(existente.id)).resolves.toMatchObject({
+      reason: "Consulta médica",
+    });
+    await expect(
+      repository.findScheduleBlockById("3f1c9a52-8c4e-4f7a-9d2b-6a1e5c7b8d90"),
+    ).resolves.toBeNull();
+  });
+
+  it("findScheduleBlocksInPeriod traz os bloqueios do período em ordem de início", async () => {
+    await repository.createNewScheduleBlock({
+      start_time: horario("08:00"),
+      end_time: horario("09:00"),
+      reason: "Antes",
+    });
+    // outro dia: não pode aparecer
+    await repository.createNewScheduleBlock({
+      start_time: new Date("2099-01-07T12:00:00.000Z"),
+      end_time: new Date("2099-01-07T13:00:00.000Z"),
+      reason: "Outro dia",
+    });
+
+    const doDia = await repository.findScheduleBlocksInPeriod({
+      start_time: new Date("2099-01-05T00:00:00.000Z"),
+      end_time: new Date("2099-01-06T00:00:00.000Z"),
+    });
+
+    expect(doDia.map((b) => b.reason)).toEqual(["Antes", "Consulta médica"]);
+  });
+
+  it("updateScheduleBlock grava o novo período e o novo motivo", async () => {
+    const existente = await bloqueioExistente();
+
+    const editado = await repository.updateScheduleBlock({
+      id: existente.id,
+      start_time: horario("15:00"),
+      end_time: horario("16:00"),
+      reason: "Reunião",
+    });
+
+    expect(editado).toMatchObject({
+      start_time: horario("15:00"),
+      end_time: horario("16:00"),
+      reason: "Reunião",
+    });
+  });
+
+  it("deleteScheduleBlock remove de verdade e devolve o removido", async () => {
+    const existente = await bloqueioExistente();
+
+    const removido = await repository.deleteScheduleBlock(existente.id);
+
+    expect(removido.id).toBe(existente.id);
+    expect(await prismaClient.schedule_blocks.count()).toBe(0);
+  });
+});

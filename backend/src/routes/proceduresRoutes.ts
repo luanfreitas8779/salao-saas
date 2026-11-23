@@ -5,7 +5,7 @@ import { validateSchema } from "../middlewares/validateSchema";
 import { createProcedureSchema } from "../schemas/procedures/createProcedureSchema";
 import { editProcedureSchema } from "../schemas/procedures/editProcedureSchema";
 import { deleteProcedureSchema } from "../schemas/procedures/deleteProcedureSchema";
-import { isAdmin } from "../middlewares/isAdmin";
+import { isProf } from "../middlewares/isProf";
 
 const routes = Router();
 const procedureController = makeProcedureController();
@@ -15,14 +15,14 @@ routes.get("/", procedureController.findActiveProcedures);
 routes.get(
   "/all",
   isAuthenticated,
-  isAdmin,
+  isProf,
   procedureController.findAllProcedures,
 );
 
 routes.post(
   "/",
   isAuthenticated,
-  isAdmin,
+  isProf,
   validateSchema(createProcedureSchema),
   procedureController.createNewProcedure,
 );
@@ -30,7 +30,7 @@ routes.post(
 routes.put(
   "/:id",
   isAuthenticated,
-  isAdmin,
+  isProf,
   validateSchema(editProcedureSchema),
   procedureController.editProcedure,
 );
@@ -38,7 +38,7 @@ routes.put(
 routes.delete(
   "/:id",
   isAuthenticated,
-  isAdmin,
+  isProf,
   validateSchema(deleteProcedureSchema),
   procedureController.deleteProcedure,
 );

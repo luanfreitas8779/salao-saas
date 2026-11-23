@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import { api, autorizacao, criarAdmin, criarCliente } from "../../test-integration/api";
+import { api, autorizacao, criarProf, criarCliente } from "../../test-integration/api";
 import {
   criarProcedimento,
   limparBanco,
@@ -9,10 +9,10 @@ import {
 
 // Teste de API: requisições HTTP de verdade em /api/procedures, até o banco de teste.
 // O mais importante aqui é a PERMISSÃO: só o admin cria, edita e remove.
-// Se alguém tirar o isAdmin de uma rota, estes testes ficam vermelhos.
+// Se alguém tirar o isProf de uma rota, estes testes ficam vermelhos.
 
 let cliente: Awaited<ReturnType<typeof criarCliente>>;
-let admin: Awaited<ReturnType<typeof criarAdmin>>;
+let admin: Awaited<ReturnType<typeof criarProf>>;
 
 const novo = {
   name: "Corte feminino",
@@ -24,7 +24,7 @@ const novo = {
 beforeEach(async () => {
   await limparBanco();
   cliente = await criarCliente();
-  admin = await criarAdmin();
+  admin = await criarProf();
 });
 
 afterAll(async () => {
@@ -39,7 +39,7 @@ describe("GET /api/procedures e GET /api/procedures/all", () => {
     const res = await api().get("/api/procedures");
 
     expect(res.status).toBe(200);
-    expect(res.body.findActiveProcedures.map((p: { id: string }) => p.id)).toEqual([ativo.id]);
+    expect(res.body.map((p: { id: string }) => p.id)).toEqual([ativo.id]);
   });
 
   it("a lista completa (com inativos) é só para o admin", async () => {
@@ -52,7 +52,7 @@ describe("GET /api/procedures e GET /api/procedures/all", () => {
     expect(semLogin.status).toBe(401);
     expect(comoCliente.status).toBe(403);
     expect(comoAdmin.status).toBe(200);
-    expect(comoAdmin.body.findAllProcedures).toHaveLength(1);
+    expect(comoAdmin.body).toHaveLength(1);
   });
 });
 
@@ -64,7 +64,7 @@ describe("POST /api/procedures", () => {
       .send(novo);
 
     expect(res.status).toBe(201);
-    expect(res.body.createNewProcedure).toMatchObject(novo);
+    expect(res.body).toMatchObject(novo);
   });
 
   it("o cliente recebe 403 e nada é criado", async () => {
@@ -118,7 +118,7 @@ describe("PUT e DELETE /api/procedures/:id", () => {
       .send({ ...novo, price: 9000 });
 
     expect(res.status).toBe(200);
-    expect(res.body.editProcedure.price).toBe(9000);
+    expect(res.body.price).toBe(9000);
   });
 
   it("responde 404 para um id que não existe", async () => {
@@ -147,7 +147,7 @@ describe("PUT e DELETE /api/procedures/:id", () => {
     const publica = await api().get("/api/procedures");
 
     expect(res.status).toBe(200);
-    expect(publica.body.findActiveProcedures).toEqual([]);
+    expect(publica.body).toEqual([]);
     expect(await prismaClient.procedures.count()).toBe(1);
   });
 

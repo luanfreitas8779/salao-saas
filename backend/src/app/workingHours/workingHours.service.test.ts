@@ -8,6 +8,7 @@ import type { WorkingHoursRepository } from "./workingHours.repository";
 
 const repository = {
   updateWorkingHours: vi.fn(),
+  findAllWorkingHours: vi.fn(),
 };
 
 const service = new WorkingHoursService(
@@ -16,6 +17,16 @@ const service = new WorkingHoursService(
 
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+describe("WorkingHoursService.listWorkingHours", () => {
+  it("devolve os dias que o repository retornou", async () => {
+    const dias = [{ id: "wh-0", dayOfWeek: 0 }, { id: "wh-1", dayOfWeek: 1 }];
+    repository.findAllWorkingHours.mockResolvedValue(dias);
+
+    await expect(service.listWorkingHours()).resolves.toEqual(dias);
+    expect(repository.findAllWorkingHours).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("WorkingHoursService.updateWorkingHours", () => {

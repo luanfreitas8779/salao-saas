@@ -15,6 +15,10 @@ export class WorkingHoursService {
     private readonly workingHoursRepository: WorkingHoursRepository,
   ) {}
 
+  async listWorkingHours(): Promise<WorkingHours[]> {
+    return this.workingHoursRepository.findAllWorkingHours();
+  }
+
   async updateWorkingHours(days: WorkingDayProps[]): Promise<WorkingHours[]> {
     const updatedDays =
       await this.workingHoursRepository.updateWorkingHours(days);

@@ -1,12 +1,12 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import { api, autorizacao, criarAdmin, criarCliente } from "../../test-integration/api";
+import { api, autorizacao, criarProf, criarCliente } from "../../test-integration/api";
 import { limparBanco, prismaClient } from "../../test-integration/database";
 
 // Teste de API: requisições HTTP de verdade em /api/working-hours, até o banco de teste.
 
 let cliente: Awaited<ReturnType<typeof criarCliente>>;
-let admin: Awaited<ReturnType<typeof criarAdmin>>;
+let admin: Awaited<ReturnType<typeof criarProf>>;
 
 const segunda = {
   day: 1,
@@ -20,7 +20,7 @@ const segunda = {
 beforeEach(async () => {
   await limparBanco();
   cliente = await criarCliente();
-  admin = await criarAdmin();
+  admin = await criarProf();
   await prismaClient.workingHours.create({
     data: { dayOfWeek: 1, start_time: "08:00", end_time: "18:00", isOpen: true },
   });
@@ -28,6 +28,16 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await prismaClient.$disconnect();
+});
+
+describe("GET /api/working-hours", () => {
+  it("é público e devolve o expediente de cada dia", async () => {
+    const res = await api().get("/api/working-hours");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({ dayOfWeek: 1, start_time: "08:00", isOpen: true });
+  });
 });
 
 describe("PUT /api/working-hours", () => {

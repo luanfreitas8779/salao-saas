@@ -32,6 +32,17 @@ afterAll(async () => {
   await prismaClient.$disconnect();
 });
 
+describe("WorkingHoursRepository.findAllWorkingHours", () => {
+  it("devolve todos os dias em ordem de domingo (0) a sábado (6)", async () => {
+    await criarDia(6);
+    await criarDia(3);
+
+    const dias = await repository.findAllWorkingHours();
+
+    expect(dias.map((dia) => dia.dayOfWeek)).toEqual([0, 1, 3, 6]);
+  });
+});
+
 describe("WorkingHoursRepository.updateWorkingHours", () => {
   it("atualiza todos os dias enviados", async () => {
     await repository.updateWorkingHours([

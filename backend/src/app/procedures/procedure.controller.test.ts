@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 
 describe("ProcedureController.createNewProcedure", () => {
-  it("passa os 4 campos ao service e responde 201 com { createNewProcedure }", async () => {
+  it("passa os 4 campos ao service e responde 201 com o procedimento criado", async () => {
     service.createProcedure.mockResolvedValue(procedimento);
     const res = criarRes();
 
@@ -55,7 +55,7 @@ describe("ProcedureController.createNewProcedure", () => {
     expect(service.createProcedure).toHaveBeenCalledWith(dados);
     expect(service.createProcedure).toHaveBeenCalledTimes(1);
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith({ createNewProcedure: procedimento });
+    expect(res.json).toHaveBeenCalledWith(procedimento);
   });
 
   it("repassa o erro do service e não responde nada (quem responde é o handler global)", async () => {
@@ -71,7 +71,7 @@ describe("ProcedureController.createNewProcedure", () => {
 });
 
 describe("ProcedureController.deleteProcedure", () => {
-  it("pega o id da URL e responde 200 com { deleteProcedure }", async () => {
+  it("pega o id da URL e responde 200 com o procedimento desativado", async () => {
     const desativado = { ...procedimento, is_active: false };
     service.deleteProcedure.mockResolvedValue(desativado);
     const res = criarRes();
@@ -83,7 +83,7 @@ describe("ProcedureController.deleteProcedure", () => {
 
     expect(service.deleteProcedure).toHaveBeenCalledWith({ id: "procedure-id-1" });
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ deleteProcedure: desativado });
+    expect(res.json).toHaveBeenCalledWith(desativado);
   });
 });
 
@@ -102,12 +102,12 @@ describe("ProcedureController.editProcedure", () => {
 
     expect(service.editProcedure).toHaveBeenCalledWith({ id: "procedure-id-1", ...dados });
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ editProcedure: procedimento });
+    expect(res.json).toHaveBeenCalledWith(procedimento);
   });
 });
 
 describe("ProcedureController.findAllProcedures / findActiveProcedures", () => {
-  it("responde 200 com { findAllProcedures }", async () => {
+  it("responde 200 com a lista completa", async () => {
     const lista = [procedimento];
     service.findAllProcedures.mockResolvedValue(lista);
     const res = criarRes();
@@ -115,10 +115,10 @@ describe("ProcedureController.findAllProcedures / findActiveProcedures", () => {
     await controller.findAllProcedures(criarReq({}), res as unknown as Response);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ findAllProcedures: lista });
+    expect(res.json).toHaveBeenCalledWith(lista);
   });
 
-  it("responde 200 com { findActiveProcedures }", async () => {
+  it("responde 200 com a lista de ativos", async () => {
     const lista = [procedimento];
     service.findActiveProcedures.mockResolvedValue(lista);
     const res = criarRes();
@@ -127,6 +127,6 @@ describe("ProcedureController.findAllProcedures / findActiveProcedures", () => {
 
     expect(service.findAllProcedures).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ findActiveProcedures: lista });
+    expect(res.json).toHaveBeenCalledWith(lista);
   });
 });

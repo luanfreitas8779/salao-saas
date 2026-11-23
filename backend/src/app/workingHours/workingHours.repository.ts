@@ -32,6 +32,12 @@ export class WorkingHoursRepository {
     return updatedDays;
   }
 
+  async findAllWorkingHours(): Promise<WorkingHours[]> {
+    return prismaClient.workingHours.findMany({
+      orderBy: { dayOfWeek: "asc" },
+    });
+  }
+
   async findWorkingHoursOfDay(dayOfWeek: number): Promise<WorkingHours | null> {
     const workingHours = prismaClient.workingHours.findFirst({
       where: {

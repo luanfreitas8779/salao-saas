@@ -3,11 +3,17 @@ import { WorkingHoursService } from "./workingHours.service";
 
 export class WorkingHoursController {
   constructor(private readonly service: WorkingHoursService) {}
-  handle = async (req: Request, res: Response) => {
+  listWorkingHours = async (_: Request, res: Response) => {
+    const days = await this.service.listWorkingHours();
+
+    res.status(200).json(days);
+  };
+
+  updateWorkingHours = async (req: Request, res: Response) => {
     const { newData } = req.body;
 
-    const result = await this.service.updateWorkingHours(newData);
+    const updatedDays = await this.service.updateWorkingHours(newData);
 
-    res.json(result);
+    res.status(200).json(updatedDays);
   };
 }

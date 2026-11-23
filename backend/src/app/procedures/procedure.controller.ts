@@ -25,20 +25,20 @@ export class ProcedureController {
       price,
       duration_minutes,
     }: CreateNewProcedureProps = req.body;
-    const createNewProcedure = await this.service.createProcedure({
+    const procedure = await this.service.createProcedure({
       name: name,
       description: description,
       price: price,
       duration_minutes: duration_minutes,
     });
 
-    res.status(201).json({ createNewProcedure });
+    res.status(201).json(procedure);
   };
 
   deleteProcedure = async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const deleteProcedure = await this.service.deleteProcedure({ id: id });
-    res.status(200).json({ deleteProcedure });
+    const deactivatedProcedure = await this.service.deleteProcedure({ id: id });
+    res.status(200).json(deactivatedProcedure);
   };
 
   editProcedure = async (req: Request, res: Response) => {
@@ -49,23 +49,23 @@ export class ProcedureController {
       price,
       duration_minutes,
     }: EditProceduresProps = req.body;
-    const editProcedure = await this.service.editProcedure({
+    const updatedProcedure = await this.service.editProcedure({
       id: id,
       name: name,
       description: description,
       price: price,
       duration_minutes: duration_minutes,
     });
-    res.status(200).json({ editProcedure });
+    res.status(200).json(updatedProcedure);
   };
 
   findAllProcedures = async (_: Request, res: Response) => {
-    const findAllProcedures = await this.service.findAllProcedures();
-    res.status(200).json({ findAllProcedures });
+    const procedures = await this.service.findAllProcedures();
+    res.status(200).json(procedures);
   };
 
   findActiveProcedures = async (_: Request, res: Response) => {
-    const findActiveProcedures = await this.service.findActiveProcedures();
-    res.status(200).json({ findActiveProcedures });
+    const activeProcedures = await this.service.findActiveProcedures();
+    res.status(200).json(activeProcedures);
   };
 }

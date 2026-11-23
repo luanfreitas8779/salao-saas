@@ -5,6 +5,7 @@ import { createUserSchema } from "./userSchema";
 import { recoveryPasswordSchema } from "./recoveryPasswordSchema";
 import { resetPasswordSchema } from "./resetPasswordSchema";
 import { updateProfileSchema } from "./updateProfileSchema";
+import { searchClientsSchema } from "./searchClientsSchema";
 
 // Os schemas validam o objeto { body, query, params } que o validateSchema
 // monta. Por isso a entrada dos testes vem embrulhada em `body`.
@@ -158,5 +159,25 @@ describe("updateProfileSchema", () => {
     const resultado = updateProfileSchema.safeParse({ body: {} });
 
     expect(mensagens(resultado)).toContain("Informe telefone e/ou senha para atualizar");
+  });
+});
+
+describe("searchClientsSchema", () => {
+  it.each([
+    ["2 caracteres (o mínimo)", "ma", true],
+    ["1 caractere", "m", false],
+    ["só espaços", "   ", false],
+  ])("busca com %s → aceita = %s", (_caso, search, aceita) => {
+    expect(searchClientsSchema.safeParse({ query: { search } }).success).toBe(aceita);
+  });
+
+  it("tira os espaços das pontas da busca", () => {
+    const resultado = searchClientsSchema.safeParse({ query: { search: "  maria  " } });
+
+    expect(resultado.data?.query.search).toBe("maria");
+  });
+
+  it("recusa a busca ausente", () => {
+    expect(searchClientsSchema.safeParse({ query: {} }).success).toBe(false);
   });
 });

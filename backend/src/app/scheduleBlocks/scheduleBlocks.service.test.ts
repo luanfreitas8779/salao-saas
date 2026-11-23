@@ -3,13 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ScheduleBlocksService } from "./scheduleBlocks.service";
 import type { ScheduleBlocksRepository } from "./scheduleBlocks.repository";
 import type { AppointmentRepository } from "../appointments/appointment.repository";
-import { BadRequestError } from "../../errors/app-error";
+import { BadRequestError, NotFoundError } from "../../errors/app-error";
 
 // Testes unitários do ScheduleBlocksService: os dois repositories são mockados.
 
 const scheduleBlocksRepository = {
   findConflictingScheduleBlock: vi.fn(),
   createNewScheduleBlock: vi.fn(),
+  findScheduleBlockById: vi.fn(),
+  findScheduleBlocksInPeriod: vi.fn(),
+  updateScheduleBlock: vi.fn(),
+  deleteScheduleBlock: vi.fn(),
 };
 const appointmentRepository = {
   findConflictingAppointment: vi.fn(),
@@ -74,5 +78,99 @@ describe("ScheduleBlocksService.createScheduleBlock", () => {
       "Já existe algum bloqueio ou agendamento para a data selecionada.",
     );
     expect(scheduleBlocksRepository.createNewScheduleBlock).not.toHaveBeenCalled();
+  });
+});
+
+describe("ScheduleBlocksService.listScheduleBlocks", () => {
+  it("converte o período para o fuso do salão, incluindo o último dia inteiro", async () => {
+    const lista = [{ id: "block-1" }];
+    scheduleBlocksRepository.findScheduleBlocksInPeriod.mockResolvedValue(lista);
+
+    const resultado = await service.listScheduleBlocks("2026-10-12", "2026-10-13");
+
+    expect(resultado).toEqual(lista);
+    expect(scheduleBlocksRepository.findScheduleBlocksInPeriod).toHaveBeenCalledWith({
+      start_time: new Date("2026-10-12T03:00:00.000Z"),
+      end_time: new Date("2026-10-14T03:00:00.000Z"),
+    });
+  });
+});
+
+describe("ScheduleBlocksService.updateScheduleBlock", () => {
+  const edicao = { id: "block-1", ...dados };
+
+  it("lança NotFoundError e não edita quando o bloqueio não existe", async () => {
+    scheduleBlocksRepository.findScheduleBlockById.mockResolvedValue(null);
+
+    await expect(service.updateScheduleBlock(edicao)).rejects.toThrow(
+      new NotFoundError("Bloqueio não encontrado"),
+    );
+    expect(scheduleBlocksRepository.updateScheduleBlock).not.toHaveBeenCalled();
+  });
+
+  it("confere conflito com OUTROS bloqueios, ignorando o próprio", async () => {
+    scheduleBlocksRepository.findScheduleBlockById.mockResolvedValue({ id: "block-1" });
+    scheduleBlocksRepository.findConflictingScheduleBlock.mockResolvedValue([]);
+    appointmentRepository.findConflictingAppointment.mockResolvedValue(null);
+    scheduleBlocksRepository.updateScheduleBlock.mockResolvedValue({ id: "block-1" });
+
+    await service.updateScheduleBlock(edicao);
+
+    expect(scheduleBlocksRepository.findConflictingScheduleBlock).toHaveBeenCalledWith({
+      start_time: dados.start_time,
+      end_time: dados.end_time,
+      excludeId: "block-1",
+    });
+  });
+
+  it.each([
+    ["outro bloqueio", [{ id: "block-2" }], null],
+    ["um agendamento", [], { id: "appointment-id-1" }],
+  ])("lança BadRequestError e não edita quando o novo período bate com %s", async (_caso, blocos, agendamento) => {
+    scheduleBlocksRepository.findScheduleBlockById.mockResolvedValue({ id: "block-1" });
+    scheduleBlocksRepository.findConflictingScheduleBlock.mockResolvedValue(blocos);
+    appointmentRepository.findConflictingAppointment.mockResolvedValue(agendamento);
+
+    await expect(service.updateScheduleBlock(edicao)).rejects.toThrow(
+      new BadRequestError("Já existe algum bloqueio ou agendamento para a data selecionada."),
+    );
+    expect(scheduleBlocksRepository.updateScheduleBlock).not.toHaveBeenCalled();
+  });
+
+  it("edita e devolve o bloqueio atualizado", async () => {
+    const atualizado = { id: "block-1", ...dados, reason: "Reforma" };
+    scheduleBlocksRepository.findScheduleBlockById.mockResolvedValue({ id: "block-1" });
+    scheduleBlocksRepository.findConflictingScheduleBlock.mockResolvedValue([]);
+    appointmentRepository.findConflictingAppointment.mockResolvedValue(null);
+    scheduleBlocksRepository.updateScheduleBlock.mockResolvedValue(atualizado);
+
+    const resultado = await service.updateScheduleBlock({ ...edicao, reason: "Reforma" });
+
+    expect(resultado).toEqual(atualizado);
+    expect(scheduleBlocksRepository.updateScheduleBlock).toHaveBeenCalledWith({
+      ...edicao,
+      reason: "Reforma",
+    });
+    expect(scheduleBlocksRepository.updateScheduleBlock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ScheduleBlocksService.deleteScheduleBlock", () => {
+  it("lança NotFoundError e não remove quando o bloqueio não existe", async () => {
+    scheduleBlocksRepository.findScheduleBlockById.mockResolvedValue(null);
+
+    await expect(service.deleteScheduleBlock({ id: "nao-existe" })).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    expect(scheduleBlocksRepository.deleteScheduleBlock).not.toHaveBeenCalled();
+  });
+
+  it("remove e devolve o bloqueio removido", async () => {
+    const bloqueio = { id: "block-1", ...dados };
+    scheduleBlocksRepository.findScheduleBlockById.mockResolvedValue(bloqueio);
+    scheduleBlocksRepository.deleteScheduleBlock.mockResolvedValue(bloqueio);
+
+    await expect(service.deleteScheduleBlock({ id: "block-1" })).resolves.toEqual(bloqueio);
+    expect(scheduleBlocksRepository.deleteScheduleBlock).toHaveBeenCalledWith("block-1");
   });
 });
