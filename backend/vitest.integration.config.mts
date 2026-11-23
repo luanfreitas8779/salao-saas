@@ -12,9 +12,13 @@ if (!existsSync(".env.test")) {
 }
 
 const testEnv = {
-  // valores falsos, só para os testes de API (rotas com login e e-mail de recuperação)
+  // A aplicação lê as variáveis só pelo env validado, que exige todas.
+  // Fora o banco (que vem do .env.test), os valores são falsos: o envio de
+  // e-mail é trocado por um falso nos testes que passam por ele.
   JWT_SECRET: "segredo-so-para-testes",
   FRONTEND_URL: "http://front.teste",
+  EMAIL_USER: "teste@email.com",
+  EMAIL_PASS: "senha-falsa",
   ...parse(readFileSync(".env.test")),
 };
 
