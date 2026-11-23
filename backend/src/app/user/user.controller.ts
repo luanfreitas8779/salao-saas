@@ -32,42 +32,42 @@ export class UserController {
       password: password,
     });
 
-    res.status(200).json({ login });
+    res.status(200).json(login);
   };
 
   CreateNewUser = async (req: Request, res: Response) => {
     const { name, email, phone, password }: CreateNewUserProps = req.body;
 
-    const createUser = await this.service.CreateNewUser({
+    const createdUser = await this.service.CreateNewUser({
       name: name,
       email: email,
       phone: phone,
       password: password,
     });
 
-    res.status(201).json({ createUser });
+    res.status(201).json(createdUser);
   };
 
   recoveryPassword = async (req: Request, res: Response) => {
     const { email }: RecoveryPasswordProps = req.body;
 
-    const recoveryPassword = await this.service.recoveryPassword({
+    const message = await this.service.recoveryPassword({
       email: email,
     });
 
-    res.status(200).json(recoveryPassword);
+    res.status(200).json({ message });
   };
 
   resetPassword = async (req: Request, res: Response) => {
     const token = req.params.token as string;
     const { newPassword }: ResetPasswordProps = req.body;
 
-    const resetPassword = await this.service.resetPassword({
+    const message = await this.service.resetPassword({
       token: token,
       newPassword: newPassword,
     });
 
-    res.status(200).json({ resetPassword });
+    res.status(200).json({ message });
   };
 
   getUserById = async (req: Request, res: Response) => {
@@ -75,7 +75,15 @@ export class UserController {
 
     const user = await this.service.getUserById({ id: id });
 
-    res.status(200).json({ user });
+    res.status(200).json(user);
+  };
+
+  searchClients = async (req: Request, res: Response) => {
+    const { search } = req.query as { search: string };
+
+    const clients = await this.service.searchClients({ search: search });
+
+    res.status(200).json(clients);
   };
 
   updateProfile = async (req: Request, res: Response) => {
@@ -87,6 +95,6 @@ export class UserController {
       password: password,
     });
 
-    res.status(200).json({ user });
+    res.status(200).json(user);
   };
 }

@@ -8,10 +8,10 @@
  *
  * 🟢 You can import this file directly.
  */
-export type * from './models/Users'
-export type * from './models/Procedures'
-export type * from './models/Appointments'
-export type * from './models/Schedule_blocks'
-export type * from './models/PasswordResetToken'
-export type * from './models/WorkingHours'
-export type * from './commonInputTypes'
+export type * from './models/Users.js'
+export type * from './models/Procedures.js'
+export type * from './models/Appointments.js'
+export type * from './models/Schedule_blocks.js'
+export type * from './models/PasswordResetToken.js'
+export type * from './models/WorkingHours.js'
+export type * from './commonInputTypes.js'

@@ -16,6 +16,7 @@ const service = {
   resetPassword: vi.fn(),
   getUserById: vi.fn(),
   updateProfile: vi.fn(),
+  searchClients: vi.fn(),
 };
 
 const controller = new UserController(service as unknown as UserService);
@@ -28,7 +29,7 @@ function criarRes() {
 }
 
 function criarReq(dados: Partial<Request>) {
-  return { body: {}, params: {}, ...dados } as Request;
+  return { body: {}, params: {}, query: {}, ...dados } as Request;
 }
 
 beforeEach(() => {
@@ -36,7 +37,7 @@ beforeEach(() => {
 });
 
 describe("UserController.authLogin", () => {
-  it("passa email e senha ao service e responde 200 com { login }", async () => {
+  it("passa email e senha ao service e responde 200 com os dados do login", async () => {
     const login = { id: "user-id-1", name: "Maria", role: "CLIENT", token: "jwt" };
     service.authLogin.mockResolvedValue(login);
     const res = criarRes();
@@ -52,7 +53,7 @@ describe("UserController.authLogin", () => {
     });
     expect(service.authLogin).toHaveBeenCalledTimes(1);
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ login });
+    expect(res.json).toHaveBeenCalledWith(login);
   });
 
   it("repassa o erro do service e não responde nada (quem responde é o handler global)", async () => {
@@ -69,8 +70,9 @@ describe("UserController.authLogin", () => {
 });
 
 describe("UserController.CreateNewUser", () => {
-  it("passa só os 4 campos do cadastro ao service e responde 201 com { createUser }", async () => {
-    service.CreateNewUser.mockResolvedValue("Maria da Silva");
+  it("passa só os 4 campos do cadastro ao service e responde 201 com o usuário criado", async () => {
+    const criado = { id: "user-id-1", name: "Maria da Silva" };
+    service.CreateNewUser.mockResolvedValue(criado);
     const res = criarRes();
 
     await controller.CreateNewUser(
@@ -80,7 +82,7 @@ describe("UserController.CreateNewUser", () => {
           email: "maria@email.com",
           phone: "11999999999",
           password: "senha123",
-          role: "ADMIN", // campo extra: não pode chegar ao service
+          role: "PROF", // campo extra: não pode chegar ao service
         },
       }),
       res as unknown as Response,
@@ -93,12 +95,12 @@ describe("UserController.CreateNewUser", () => {
       password: "senha123",
     });
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith({ createUser: "Maria da Silva" });
+    expect(res.json).toHaveBeenCalledWith(criado);
   });
 });
 
 describe("UserController.recoveryPassword", () => {
-  it("passa o email ao service e responde 200 com a mensagem pura (sem objeto em volta)", async () => {
+  it("passa o email ao service e responde 200 com { message }, no mesmo formato das mensagens de erro", async () => {
     const mensagem = "Se esse email existir, enviaremos o link de recuperação.";
     service.recoveryPassword.mockResolvedValue(mensagem);
     const res = criarRes();
@@ -110,12 +112,12 @@ describe("UserController.recoveryPassword", () => {
 
     expect(service.recoveryPassword).toHaveBeenCalledWith({ email: "maria@email.com" });
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(mensagem);
+    expect(res.json).toHaveBeenCalledWith({ message: mensagem });
   });
 });
 
 describe("UserController.resetPassword", () => {
-  it("pega o token da URL e a nova senha do body, e responde 200 com { resetPassword }", async () => {
+  it("pega o token da URL e a nova senha do body, e responde 200 com { message }", async () => {
     service.resetPassword.mockResolvedValue("Senha alterada com sucesso!");
     const res = criarRes();
 
@@ -129,12 +131,12 @@ describe("UserController.resetPassword", () => {
       newPassword: "novaSenha",
     });
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ resetPassword: "Senha alterada com sucesso!" });
+    expect(res.json).toHaveBeenCalledWith({ message: "Senha alterada com sucesso!" });
   });
 });
 
 describe("UserController.getUserById", () => {
-  it("busca o usuário do token (req.user_id) e responde 200 com { user }", async () => {
+  it("busca o usuário do token (req.user_id) e responde 200 com o usuário", async () => {
     const user = { id: "user-id-1", name: "Maria" };
     service.getUserById.mockResolvedValue(user);
     const res = criarRes();
@@ -146,7 +148,7 @@ describe("UserController.getUserById", () => {
 
     expect(service.getUserById).toHaveBeenCalledWith({ id: "user-id-1" });
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ user });
+    expect(res.json).toHaveBeenCalledWith(user);
   });
 });
 
@@ -171,6 +173,23 @@ describe("UserController.updateProfile", () => {
       password: "novaSenha",
     });
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ user });
+    expect(res.json).toHaveBeenCalledWith(user);
+  });
+});
+
+describe("UserController.searchClients", () => {
+  it("pega a busca da query e responde 200 com a lista", async () => {
+    const clientes = [{ id: "user-id-1", name: "Maria" }];
+    service.searchClients.mockResolvedValue(clientes);
+    const res = criarRes();
+
+    await controller.searchClients(
+      criarReq({ query: { search: "mar" } }),
+      res as unknown as Response,
+    );
+
+    expect(service.searchClients).toHaveBeenCalledWith({ search: "mar" });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(clientes);
   });
 });

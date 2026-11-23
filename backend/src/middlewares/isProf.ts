@@ -1,31 +1,19 @@
-import { Request, Response, NextFunction } from "express"
+import { Request, Response, NextFunction } from "express";
 import { ForbiddenError, UnauthorizedError } from "../errors/app-error";
-import prismaClient from "../prisma/index";
 
-export async function isAdmin(
+//Só deixa passar o profissional do salão (PROF).
+//Vem sempre depois do isAuthenticated, que já buscou o usuário no banco e
+//preencheu o req.user_role com o papel ATUAL (não o do momento do login).
+export async function isProf(
   req: Request,
   _: Response,
   next: NextFunction,
 ): Promise<void> {
-  const userId = req.user_id;
-
-  if (!userId) {
+  if (!req.user_id) {
     throw new UnauthorizedError("Usuário não autenticado");
   }
 
-  const user = await prismaClient.users.findFirst({
-    where: {
-      id: userId,
-    },
-  });
-
-  if (!user) {
-    throw new UnauthorizedError("Usuário não autenticado");
-  }
-
-  req.user_role = user.role;
-
-  if (user.role !== "ADMIN") {
+  if (req.user_role !== "PROF") {
     throw new ForbiddenError("Usuário sem permissão");
   }
 

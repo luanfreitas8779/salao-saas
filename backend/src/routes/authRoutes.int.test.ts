@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { hash } from "bcrypt";
 
 import { api } from "../../test-integration/api";
 import { limparBanco, prismaClient } from "../../test-integration/database";
@@ -38,7 +39,14 @@ describe("POST /api/auth/register", () => {
     const res = await api().post("/api/auth/register").send(cadastro);
 
     expect(res.status).toBe(201);
-    expect(res.body).toEqual({ createUser: "Maria da Silva" });
+    expect(res.body).toMatchObject({
+      name: "Maria da Silva",
+      email: cadastro.email,
+      phone: "11999999999",
+      role: "CLIENT",
+    });
+    expect(res.body).not.toHaveProperty("password_hash");
+    expect(res.body).not.toHaveProperty("token_version");
 
     const noBanco = await prismaClient.users.findUnique({ where: { email: cadastro.email } });
     expect(noBanco?.phone).toBe("11999999999");
@@ -46,7 +54,7 @@ describe("POST /api/auth/register", () => {
   });
 
   it("não deixa o cadastro escolher o próprio papel: todo cadastro vira CLIENT", async () => {
-    await api().post("/api/auth/register").send({ ...cadastro, role: "ADMIN" });
+    await api().post("/api/auth/register").send({ ...cadastro, role: "PROF" });
 
     const noBanco = await prismaClient.users.findUnique({ where: { email: cadastro.email } });
     expect(noBanco?.role).toBe("CLIENT");
@@ -96,11 +104,11 @@ describe("POST /api/auth/login", () => {
       .send({ email: cadastro.email, password: cadastro.password });
 
     expect(res.status).toBe(200);
-    expect(res.body.login).toMatchObject({ name: "Maria da Silva", role: "CLIENT" });
+    expect(res.body).toMatchObject({ name: "Maria da Silva", role: "CLIENT" });
 
     const perfil = await api()
       .get("/api/users/profile")
-      .set("Authorization", `Bearer ${res.body.login.token}`);
+      .set("Authorization", `Bearer ${res.body.token}`);
     expect(perfil.status).toBe(200);
   });
 
@@ -136,6 +144,7 @@ describe("Recuperação de senha: POST /recover e POST /reset-password/:token", 
       .post(`/api/auth/reset-password/${tokenDoEmail()}`)
       .send({ newPassword: "senhaNova123" });
     expect(troca.status).toBe(200);
+    expect(troca.body).toEqual({ message: "Senha alterada com sucesso!" });
 
     const loginNovo = await api()
       .post("/api/auth/login")
@@ -174,7 +183,122 @@ describe("Recuperação de senha: POST /recover e POST /reset-password/:token", 
     const res = await api().post("/api/auth/recover").send({ email: "naoexiste@email.com" });
 
     expect(res.status).toBe(200);
-    expect(res.body).toBe("Se esse email existir, enviaremos o link de recuperação.");
+    expect(res.body).toEqual({
+      message: "Se esse email existir, enviaremos o link de recuperação.",
+    });
     expect(sendMail).not.toHaveBeenCalled();
+  });
+});
+
+describe("Um único token ativo por usuário", () => {
+  beforeEach(async () => {
+    await api().post("/api/auth/register").send(cadastro);
+  });
+
+  function entrar(password = cadastro.password) {
+    return api().post("/api/auth/login").send({ email: cadastro.email, password });
+  }
+
+  function perfil(token: string) {
+    return api().get("/api/users/profile").set("Authorization", `Bearer ${token}`);
+  }
+
+  it("um login novo derruba o token do login anterior", async () => {
+    const primeiro = (await entrar()).body.token;
+    const segundo = (await entrar()).body.token;
+
+    const comPrimeiro = await perfil(primeiro);
+    const comSegundo = await perfil(segundo);
+
+    expect(comPrimeiro.status).toBe(401);
+    expect(comPrimeiro.body).toEqual({ message: "Sessão encerrada, faça login novamente" });
+    expect(comSegundo.status).toBe(200);
+  });
+
+  it("trocar a senha pelo perfil derruba o token atual", async () => {
+    const token = (await entrar()).body.token;
+
+    const troca = await api()
+      .patch("/api/users/profile")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ password: "senhaNova123" });
+
+    expect(troca.status).toBe(200);
+    expect((await perfil(token)).status).toBe(401);
+    expect((await entrar("senhaNova123")).status).toBe(200);
+  });
+
+  it("trocar a senha pelo link do e-mail derruba o token de quem estava logado", async () => {
+    const token = (await entrar()).body.token;
+    await api().post("/api/auth/recover").send({ email: cadastro.email });
+    const html = vi.mocked(sendMail).mock.calls[0]![2];
+    const tokenDoEmail = /\/reset-password\/([a-f0-9]{64})/.exec(html)![1]!;
+
+    await api()
+      .post(`/api/auth/reset-password/${tokenDoEmail}`)
+      .send({ newPassword: "senhaNova123" });
+
+    expect((await perfil(token)).status).toBe(401);
+  });
+});
+
+describe("Primeiro acesso do profissional (troca de senha obrigatória)", () => {
+  // como o seed cria o profissional: senha simples e troca obrigatória
+  const SENHA_INICIAL = "admin1q2w3e";
+
+  beforeEach(async () => {
+    await prismaClient.users.create({
+      data: {
+        name: "Administrador",
+        email: "adminsalao@gmail.com",
+        phone: "99999999999",
+        password_hash: await hash(SENHA_INICIAL, 4),
+        role: "PROF",
+        must_change_password: true,
+      },
+    });
+  });
+
+  function entrar(password: string) {
+    return api().post("/api/auth/login").send({ email: "adminsalao@gmail.com", password });
+  }
+
+  it("o login avisa que a senha precisa ser trocada", async () => {
+    const res = await entrar(SENHA_INICIAL);
+
+    expect(res.status).toBe(200);
+    expect(res.body.must_change_password).toBe(true);
+  });
+
+  it("antes de trocar a senha, as outras rotas respondem 403", async () => {
+    const token = (await entrar(SENHA_INICIAL)).body.token;
+
+    const rotas = await Promise.all([
+      api().get("/api/users/profile").set("Authorization", `Bearer ${token}`),
+      api().get("/api/procedures/all").set("Authorization", `Bearer ${token}`),
+      api().get("/api/appointments/me").set("Authorization", `Bearer ${token}`),
+    ]);
+
+    for (const res of rotas) {
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({ message: "Troque a senha antes de continuar" });
+    }
+  });
+
+  it("depois de trocar a senha e entrar de novo, tudo libera", async () => {
+    const token = (await entrar(SENHA_INICIAL)).body.token;
+
+    const troca = await api()
+      .patch("/api/users/profile")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ password: "senhaDefinitiva123" });
+    const novoLogin = await entrar("senhaDefinitiva123");
+    const perfil = await api()
+      .get("/api/users/profile")
+      .set("Authorization", `Bearer ${novoLogin.body.token}`);
+
+    expect(troca.status).toBe(200);
+    expect(novoLogin.body.must_change_password).toBe(false);
+    expect(perfil.status).toBe(200);
   });
 });

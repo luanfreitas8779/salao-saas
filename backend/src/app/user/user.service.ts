@@ -10,7 +10,7 @@ import {
 import { UserRepository } from "./user.repository";
 import { sendMail } from "../../config/mailer";
 import crypto from "crypto";
-import "dotenv/config";
+import { env } from "../../schemas/validateEnvSchema";
 
 interface AuthLoginProps {
   email: string;
@@ -21,6 +21,7 @@ interface AuthLoginResponse {
   id: string;
   name: string;
   role: string;
+  must_change_password: boolean;
   token: string;
 }
 
@@ -44,10 +45,20 @@ interface GetUserByIdProps {
   id: string;
 }
 
+interface SearchClientsProps {
+  search: string;
+}
+
 interface UpdateProfileProps {
   id: string;
   phone?: string;
   password?: string;
+}
+
+//Remove os campos internos de segurança antes de devolver um usuário para fora do service
+function toPublicUser<T extends { password_hash: string; token_version: number }>(user: T) {
+  const { password_hash: _hash, token_version: _version, ...publicUser } = user;
+  return publicUser;
 }
 
 export class UserService {
@@ -72,11 +83,14 @@ export class UserService {
       throw new UnauthorizedError("Email ou senha incorretos");
     }
 
+    //Um único token ativo: a versão nova revoga o token do login anterior
+    const tokenVersion = await this.repository.incrementTokenVersion({
+      userId: user.id,
+    });
+
     //Gerar TOKEN JWT
-    if (!process.env.JWT_SECRET) {
-      throw new InternalServerError("CHAVE DE CRIPTOGRAFIA NÃO ENCONTRADA");
-    }
-    const token = sign({ role: user.role }, process.env.JWT_SECRET as string, {
+    //O JWT_SECRET sempre existe aqui: sem ele o servidor nem sobe (validateEnvSchema)
+    const token = sign({ role: user.role, ver: tokenVersion }, env.JWT_SECRET, {
       subject: user.id,
       expiresIn: "30d",
     });
@@ -85,6 +99,7 @@ export class UserService {
       id: user.id,
       name: user.name,
       role: user.role,
+      must_change_password: user.must_change_password,
       token: token,
     };
   }
@@ -94,7 +109,7 @@ export class UserService {
     email,
     phone,
     password,
-  }: CreateNewUserProps): Promise<string> {
+  }: CreateNewUserProps) {
     const [userWithEmail, userWithPhone] = await Promise.all([
       this.repository.findUserByEmail({ email: email }),
       this.repository.findUserByPhone({ phone: phone }),
@@ -119,7 +134,7 @@ export class UserService {
       password_hash: password_hash,
     });
 
-    return user.name;
+    return toPublicUser(user);
   }
 
   async recoveryPassword({ email }: RecoveryPasswordProps): Promise<string> {
@@ -158,7 +173,7 @@ export class UserService {
         "Recuperação de senha",
         `<h2> Olá ${user.name}</h2>
         <p>Você solicitou redefinição de senha. Clique no link abaixo para redefinir sua senha!</p>
-        <a href="${process.env.FRONTEND_URL}/reset-password/${rawToken}">👉 Redefinir minha senha!</a>
+        <a href="${env.FRONTEND_URL}/reset-password/${rawToken}">👉 Redefinir minha senha!</a>
         <p>Este link expira em 15 minutos!</p>`,
       );
     } catch (error) {
@@ -213,6 +228,9 @@ export class UserService {
       throw new InternalServerError("Erro ao atualizar a senha do usuário.");
     }
 
+    //A senha mudou: quem estiver logado com ela (inclusive um invasor) é desconectado
+    await this.repository.incrementTokenVersion({ userId: resetToken.userId });
+
     return "Senha alterada com sucesso!";
   }
 
@@ -223,8 +241,11 @@ export class UserService {
       throw new NotFoundError("Usuário não encontrado");
     }
 
-    const { password_hash, ...safeUser } = user;
-    return safeUser;
+    return toPublicUser(user);
+  }
+
+  async searchClients({ search }: SearchClientsProps) {
+    return this.repository.searchClients({ search });
   }
 
   async updateProfile({ id, phone, password }: UpdateProfileProps) {
@@ -239,6 +260,13 @@ export class UserService {
 
     const password_hash = password ? await hash(password, 10) : undefined;
 
-    return this.repository.updateProfile({ id, phone, password_hash });
+    const updatedUser = await this.repository.updateProfile({ id, phone, password_hash });
+
+    //A senha mudou: todos os tokens do usuário deixam de valer
+    if (password_hash) {
+      await this.repository.incrementTokenVersion({ userId: id });
+    }
+
+    return updatedUser;
   }
 }

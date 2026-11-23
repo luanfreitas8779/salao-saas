@@ -39,6 +39,16 @@ interface MarkPasswordResetTokenAsUsedProps {
   hashedToken: string;
 }
 
+interface IncrementTokenVersionProps {
+  userId: string;
+}
+
+interface SearchClientsProps {
+  search: string;
+}
+
+const SEARCH_LIMIT = 20;
+
 interface CreatePasswordResetTokenProps {
   userId: string;
   token_hash: string;
@@ -64,6 +74,34 @@ export class UserRepository {
     return user;
   }
 
+  //Busca clientes (nunca profissionais) pelo nome, e-mail ou telefone, sem diferenciar
+  //maiúsculas. Devolve só os dados que o profissional precisa para agendar no balcão.
+  async searchClients({ search }: SearchClientsProps) {
+    return prismaClient.users.findMany({
+      where: {
+        role: "CLIENT",
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search } },
+        ],
+      },
+      select: { id: true, name: true, email: true, phone: true },
+      orderBy: { name: "asc" },
+      take: SEARCH_LIMIT,
+    });
+  }
+
+  //Aumenta a versão no próprio banco (increment é atômico) e devolve a versão nova
+  async incrementTokenVersion({ userId }: IncrementTokenVersionProps): Promise<number> {
+    const { token_version } = await prismaClient.users.update({
+      where: { id: userId },
+      data: { token_version: { increment: 1 } },
+      select: { token_version: true },
+    });
+    return token_version;
+  }
+
   async findUserById({ id }: FindUserByIdProps): Promise<Users | null> {
     return prismaClient.users.findUnique({
       where: { id },
@@ -75,7 +113,8 @@ export class UserRepository {
       where: { id },
       data: {
         ...(phone ? { phone } : {}),
-        ...(password_hash ? { password_hash } : {}),
+        //trocar a senha cumpre a troca obrigatória do primeiro acesso
+        ...(password_hash ? { password_hash, must_change_password: false } : {}),
       },
       select: {
         id: true,
@@ -139,7 +178,7 @@ export class UserRepository {
   }: UpdateUserPasswordProps) {
     const updatedUser = await prismaClient.users.update({
       where: { id: userId },
-      data: { password_hash: newPasswordHash },
+      data: { password_hash: newPasswordHash, must_change_password: false },
     });
     return updatedUser;
   }

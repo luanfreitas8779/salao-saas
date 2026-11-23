@@ -1,14 +1,30 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextFunction, Request, Response } from "express";
 import { sign } from "jsonwebtoken";
 
-import { isAuthenticated } from "./isAuthenticatedMiddleware";
-import { UnauthorizedError } from "../errors/app-error";
+import {
+  isAuthenticated,
+  isAuthenticatedAllowingPasswordChange,
+} from "./isAuthenticatedMiddleware";
+import prismaClient from "../prisma/index";
+import { ForbiddenError, UnauthorizedError } from "../errors/app-error";
+import { env } from "../schemas/validateEnvSchema";
 
-// O middleware é SÍNCRONO: lança o erro na hora, sem Promise.
-// Por isso o padrão aqui é expect(() => ...).toThrow(), e não o .rejects.
+// O middleware confere o token E o banco: cada usuário tem um único token ativo.
+// O token carrega a versão (ver); se ela não for a atual do usuário (houve um
+// login novo ou a senha mudou), o token foi revogado.
+// O Prisma é trocado por um falso, com a mesma técnica do isProf.test.ts.
 
-const JWT_SECRET_TESTE = "segredo-so-para-testes";
+vi.mock("../prisma/index", () => ({
+  default: {
+    users: { findUnique: vi.fn() },
+  },
+}));
+
+const findUnique = vi.mocked(prismaClient.users.findUnique);
+
+// valor definido no vitest.config.mts
+const JWT_SECRET_TESTE = env.JWT_SECRET;
 
 const res = {} as Response;
 const next = vi.fn() as unknown as NextFunction;
@@ -17,64 +33,141 @@ function criarReq(authorization?: string) {
   return { headers: { authorization } } as Request;
 }
 
-function criarToken(segredo = JWT_SECRET_TESTE) {
-  return sign({ role: "ADMIN" }, segredo, { subject: "user-id-1", expiresIn: "1h" });
+function criarToken({ ver = 3, segredo = JWT_SECRET_TESTE } = {}) {
+  return sign({ role: "CLIENT", ver }, segredo, { subject: "user-id-1", expiresIn: "1h" });
+}
+
+function usuarioNoBanco(sobrescrever: Record<string, unknown> = {}) {
+  return {
+    id: "user-id-1",
+    role: "PROF",
+    token_version: 3,
+    must_change_password: false,
+    ...sobrescrever,
+  } as never;
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.stubEnv("JWT_SECRET", JWT_SECRET_TESTE);
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
 });
 
 describe("isAuthenticated", () => {
-  it("chama o next e preenche user_id e user_role com o que estava no token", () => {
+  it("chama o next quando o token é válido e é o token atual do usuário", async () => {
+    findUnique.mockResolvedValue(usuarioNoBanco());
     const req = criarReq(`Bearer ${criarToken()}`);
 
-    isAuthenticated(req, res, next);
+    await isAuthenticated(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.user_id).toBe("user-id-1");
-    expect(req.user_role).toBe("ADMIN");
-  });
-
-  it("lança UnauthorizedError quando o header authorization não é enviado", () => {
-    const req = criarReq();
-
-    expect(() => isAuthenticated(req, res, next)).toThrow(
-      new UnauthorizedError("Token não informado"),
+    expect(findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "user-id-1" } }),
     );
-    expect(next).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["um texto qualquer no lugar do token", "Bearer token-falso"],
-    ["um token assinado com outro segredo", `Bearer ${criarToken("outro-segredo")}`],
-    ["o header só com a palavra Bearer", "Bearer"],
-  ])("lança UnauthorizedError com %s", (_caso, header) => {
-    const req = criarReq(header);
+  it("usa o papel que está no banco, não o que veio no token", async () => {
+    // o token diz CLIENT, mas o banco diz PROF: vale o banco
+    findUnique.mockResolvedValue(usuarioNoBanco({ role: "PROF" }));
+    const req = criarReq(`Bearer ${criarToken()}`);
 
-    expect(() => isAuthenticated(req, res, next)).toThrow(
-      "Autenticação falhou, faça login novamente",
+    await isAuthenticated(req, res, next);
+
+    expect(req.user_role).toBe("PROF");
+  });
+
+  it("recusa um token antigo: houve um login novo ou a senha mudou (versão diferente)", async () => {
+    findUnique.mockResolvedValue(usuarioNoBanco({ token_version: 4 }));
+    const req = criarReq(`Bearer ${criarToken({ ver: 3 })}`);
+
+    await expect(isAuthenticated(req, res, next)).rejects.toThrow(
+      new UnauthorizedError("Sessão encerrada, faça login novamente"),
     );
     expect(next).not.toHaveBeenCalled();
     expect(req.user_id).toBeUndefined();
   });
 
-  it("recusa um token que já nasceu vencido", () => {
+  it("recusa um token sem versão (emitido antes do token único existir)", async () => {
+    findUnique.mockResolvedValue(usuarioNoBanco({ token_version: 0 }));
+    const semVersao = sign({ role: "CLIENT" }, JWT_SECRET_TESTE, { subject: "user-id-1" });
+
+    await expect(
+      isAuthenticated(criarReq(`Bearer ${semVersao}`), res, next),
+    ).rejects.toBeInstanceOf(UnauthorizedError);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("recusa o token de um usuário que não existe mais", async () => {
+    findUnique.mockResolvedValue(null as never);
+
+    await expect(
+      isAuthenticated(criarReq(`Bearer ${criarToken()}`), res, next),
+    ).rejects.toThrow("Sessão encerrada, faça login novamente");
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("lança UnauthorizedError sem consultar o banco quando o header não é enviado", async () => {
+    await expect(isAuthenticated(criarReq(), res, next)).rejects.toThrow(
+      new UnauthorizedError("Token não informado"),
+    );
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["um texto qualquer no lugar do token", "Bearer token-falso"],
+    ["um token assinado com outro segredo", `Bearer ${criarToken({ segredo: "outro-segredo" })}`],
+    ["o header só com a palavra Bearer", "Bearer"],
+  ])("lança UnauthorizedError sem consultar o banco com %s", async (_caso, header) => {
+    const req = criarReq(header);
+
+    await expect(isAuthenticated(req, res, next)).rejects.toThrow(
+      "Autenticação falhou, faça login novamente",
+    );
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
+    expect(req.user_id).toBeUndefined();
+  });
+
+  it("recusa um token que já nasceu vencido", async () => {
     // exp no passado (em segundos, como o JWT usa)
     const vencido = sign(
-      { role: "CLIENT", exp: Math.floor(Date.now() / 1000) - 60 },
+      { role: "CLIENT", ver: 3, exp: Math.floor(Date.now() / 1000) - 60 },
       JWT_SECRET_TESTE,
       { subject: "user-id-1" },
     );
 
-    expect(() => isAuthenticated(criarReq(`Bearer ${vencido}`), res, next)).toThrow(
-      UnauthorizedError,
-    );
+    await expect(
+      isAuthenticated(criarReq(`Bearer ${vencido}`), res, next),
+    ).rejects.toBeInstanceOf(UnauthorizedError);
     expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe("Troca de senha obrigatória (primeiro acesso)", () => {
+  it("isAuthenticated responde 403 enquanto a senha não for trocada", async () => {
+    findUnique.mockResolvedValue(usuarioNoBanco({ must_change_password: true }));
+
+    await expect(
+      isAuthenticated(criarReq(`Bearer ${criarToken()}`), res, next),
+    ).rejects.toThrow(new ForbiddenError("Troque a senha antes de continuar"));
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("isAuthenticatedAllowingPasswordChange deixa passar, para a pessoa conseguir trocar a senha", async () => {
+    findUnique.mockResolvedValue(usuarioNoBanco({ must_change_password: true }));
+    const req = criarReq(`Bearer ${criarToken()}`);
+
+    await isAuthenticatedAllowingPasswordChange(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.user_id).toBe("user-id-1");
+  });
+
+  it("isAuthenticatedAllowingPasswordChange continua recusando um token revogado", async () => {
+    findUnique.mockResolvedValue(usuarioNoBanco({ token_version: 9 }));
+
+    await expect(
+      isAuthenticatedAllowingPasswordChange(criarReq(`Bearer ${criarToken({ ver: 3 })}`), res, next),
+    ).rejects.toBeInstanceOf(UnauthorizedError);
   });
 });

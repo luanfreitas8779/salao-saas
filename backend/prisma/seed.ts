@@ -15,7 +15,7 @@ async function main() {
     skipDuplicates: true, // não quebra se já existir
   });
 
-  // Senha do admin precisa ser guardada como hash bcrypt, igual ao cadastro de usuários
+  // Senha do profissional (PROF) precisa ser guardada como hash bcrypt, igual ao cadastro de usuários
   const adminPasswordHash = await hash("admin1q2w3e", 10);
 
   await prismaClient.users.upsert({
@@ -26,7 +26,9 @@ async function main() {
       email: "adminsalao@gmail.com",
       phone: "99999999999",
       password_hash: adminPasswordHash,
-      role: "ADMIN",
+      role: "PROF",
+      //senha simples só para o primeiro acesso: precisa ser trocada antes de usar o sistema
+      must_change_password: true,
     },
   });
 

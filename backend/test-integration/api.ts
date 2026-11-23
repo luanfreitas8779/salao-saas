@@ -2,6 +2,7 @@ import request from "supertest";
 import { sign } from "jsonwebtoken";
 
 import { app } from "../src/app";
+import { env } from "../src/schemas/validateEnvSchema";
 import { criarUsuario } from "./database";
 
 // Ferramentas dos testes de API: requisições HTTP de verdade no app Express,
@@ -13,8 +14,8 @@ export const api = () => request(app);
 // Gera o token como o login gera (mesmo segredo, mesmo formato), sem passar pela
 // rota de login. Assim os testes das outras rotas não gastam o limite de
 // tentativas de login (rate limiter).
-export function tokenPara(usuario: { id: string; role: string }) {
-  return sign({ role: usuario.role }, process.env.JWT_SECRET as string, {
+export function tokenPara(usuario: { id: string; role: string; token_version?: number }) {
+  return sign({ role: usuario.role, ver: usuario.token_version ?? 0 }, env.JWT_SECRET, {
     subject: usuario.id,
     expiresIn: "1h",
   });
@@ -28,6 +29,6 @@ export async function criarCliente() {
   return criarUsuario({ role: "CLIENT" });
 }
 
-export async function criarAdmin() {
-  return criarUsuario({ role: "ADMIN" });
+export async function criarProf() {
+  return criarUsuario({ role: "PROF" });
 }

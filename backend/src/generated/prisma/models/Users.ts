@@ -9,8 +9,8 @@
  * 🟢 You can import this file directly.
  */
 import type * as runtime from "@prisma/client/runtime/client"
-import type * as $Enums from "../enums"
-import type * as Prisma from "../internal/prismaNamespace"
+import type * as $Enums from "../enums.js"
+import type * as Prisma from "../internal/prismaNamespace.js"
 
 /**
  * Model Users
@@ -20,8 +20,18 @@ export type UsersModel = runtime.Types.Result.DefaultSelection<Prisma.$UsersPayl
 
 export type AggregateUsers = {
   _count: UsersCountAggregateOutputType | null
+  _avg: UsersAvgAggregateOutputType | null
+  _sum: UsersSumAggregateOutputType | null
   _min: UsersMinAggregateOutputType | null
   _max: UsersMaxAggregateOutputType | null
+}
+
+export type UsersAvgAggregateOutputType = {
+  token_version: number | null
+}
+
+export type UsersSumAggregateOutputType = {
+  token_version: number | null
 }
 
 export type UsersMinAggregateOutputType = {
@@ -31,6 +41,8 @@ export type UsersMinAggregateOutputType = {
   phone: string | null
   password_hash: string | null
   role: $Enums.Role | null
+  token_version: number | null
+  must_change_password: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -42,6 +54,8 @@ export type UsersMaxAggregateOutputType = {
   phone: string | null
   password_hash: string | null
   role: $Enums.Role | null
+  token_version: number | null
+  must_change_password: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -53,11 +67,21 @@ export type UsersCountAggregateOutputType = {
   phone: number
   password_hash: number
   role: number
+  token_version: number
+  must_change_password: number
   createdAt: number
   updatedAt: number
   _all: number
 }
 
+
+export type UsersAvgAggregateInputType = {
+  token_version?: true
+}
+
+export type UsersSumAggregateInputType = {
+  token_version?: true
+}
 
 export type UsersMinAggregateInputType = {
   id?: true
@@ -66,6 +90,8 @@ export type UsersMinAggregateInputType = {
   phone?: true
   password_hash?: true
   role?: true
+  token_version?: true
+  must_change_password?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -77,6 +103,8 @@ export type UsersMaxAggregateInputType = {
   phone?: true
   password_hash?: true
   role?: true
+  token_version?: true
+  must_change_password?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -88,6 +116,8 @@ export type UsersCountAggregateInputType = {
   phone?: true
   password_hash?: true
   role?: true
+  token_version?: true
+  must_change_password?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -131,6 +161,18 @@ export type UsersAggregateArgs<ExtArgs extends runtime.Types.Extensions.Internal
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: UsersAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: UsersSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: UsersMinAggregateInputType
@@ -161,6 +203,8 @@ export type UsersGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalAr
   take?: number
   skip?: number
   _count?: UsersCountAggregateInputType | true
+  _avg?: UsersAvgAggregateInputType
+  _sum?: UsersSumAggregateInputType
   _min?: UsersMinAggregateInputType
   _max?: UsersMaxAggregateInputType
 }
@@ -172,9 +216,13 @@ export type UsersGroupByOutputType = {
   phone: string
   password_hash: string
   role: $Enums.Role
+  token_version: number
+  must_change_password: boolean
   createdAt: Date
   updatedAt: Date
   _count: UsersCountAggregateOutputType | null
+  _avg: UsersAvgAggregateOutputType | null
+  _sum: UsersSumAggregateOutputType | null
   _min: UsersMinAggregateOutputType | null
   _max: UsersMaxAggregateOutputType | null
 }
@@ -204,6 +252,8 @@ export type UsersWhereInput = {
   phone?: Prisma.StringFilter<"Users"> | string
   password_hash?: Prisma.StringFilter<"Users"> | string
   role?: Prisma.EnumRoleFilter<"Users"> | $Enums.Role
+  token_version?: Prisma.IntFilter<"Users"> | number
+  must_change_password?: Prisma.BoolFilter<"Users"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Users"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Users"> | Date | string
   appointments?: Prisma.AppointmentsListRelationFilter
@@ -217,6 +267,8 @@ export type UsersOrderByWithRelationInput = {
   phone?: Prisma.SortOrder
   password_hash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  token_version?: Prisma.SortOrder
+  must_change_password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   appointments?: Prisma.AppointmentsOrderByRelationAggregateInput
@@ -233,6 +285,8 @@ export type UsersWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"Users"> | string
   password_hash?: Prisma.StringFilter<"Users"> | string
   role?: Prisma.EnumRoleFilter<"Users"> | $Enums.Role
+  token_version?: Prisma.IntFilter<"Users"> | number
+  must_change_password?: Prisma.BoolFilter<"Users"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Users"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Users"> | Date | string
   appointments?: Prisma.AppointmentsListRelationFilter
@@ -246,11 +300,15 @@ export type UsersOrderByWithAggregationInput = {
   phone?: Prisma.SortOrder
   password_hash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  token_version?: Prisma.SortOrder
+  must_change_password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.UsersCountOrderByAggregateInput
+  _avg?: Prisma.UsersAvgOrderByAggregateInput
   _max?: Prisma.UsersMaxOrderByAggregateInput
   _min?: Prisma.UsersMinOrderByAggregateInput
+  _sum?: Prisma.UsersSumOrderByAggregateInput
 }
 
 export type UsersScalarWhereWithAggregatesInput = {
@@ -263,6 +321,8 @@ export type UsersScalarWhereWithAggregatesInput = {
   phone?: Prisma.StringWithAggregatesFilter<"Users"> | string
   password_hash?: Prisma.StringWithAggregatesFilter<"Users"> | string
   role?: Prisma.EnumRoleWithAggregatesFilter<"Users"> | $Enums.Role
+  token_version?: Prisma.IntWithAggregatesFilter<"Users"> | number
+  must_change_password?: Prisma.BoolWithAggregatesFilter<"Users"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Users"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Users"> | Date | string
 }
@@ -274,6 +334,8 @@ export type UsersCreateInput = {
   phone: string
   password_hash: string
   role?: $Enums.Role
+  token_version?: number
+  must_change_password?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   appointments?: Prisma.AppointmentsCreateNestedManyWithoutClientInput
@@ -287,6 +349,8 @@ export type UsersUncheckedCreateInput = {
   phone: string
   password_hash: string
   role?: $Enums.Role
+  token_version?: number
+  must_change_password?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   appointments?: Prisma.AppointmentsUncheckedCreateNestedManyWithoutClientInput
@@ -300,6 +364,8 @@ export type UsersUpdateInput = {
   phone?: Prisma.StringFieldUpdateOperationsInput | string
   password_hash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  token_version?: Prisma.IntFieldUpdateOperationsInput | number
+  must_change_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   appointments?: Prisma.AppointmentsUpdateManyWithoutClientNestedInput
@@ -313,6 +379,8 @@ export type UsersUncheckedUpdateInput = {
   phone?: Prisma.StringFieldUpdateOperationsInput | string
   password_hash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  token_version?: Prisma.IntFieldUpdateOperationsInput | number
+  must_change_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   appointments?: Prisma.AppointmentsUncheckedUpdateManyWithoutClientNestedInput
@@ -326,6 +394,8 @@ export type UsersCreateManyInput = {
   phone: string
   password_hash: string
   role?: $Enums.Role
+  token_version?: number
+  must_change_password?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -337,6 +407,8 @@ export type UsersUpdateManyMutationInput = {
   phone?: Prisma.StringFieldUpdateOperationsInput | string
   password_hash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  token_version?: Prisma.IntFieldUpdateOperationsInput | number
+  must_change_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -348,6 +420,8 @@ export type UsersUncheckedUpdateManyInput = {
   phone?: Prisma.StringFieldUpdateOperationsInput | string
   password_hash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  token_version?: Prisma.IntFieldUpdateOperationsInput | number
+  must_change_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -359,8 +433,14 @@ export type UsersCountOrderByAggregateInput = {
   phone?: Prisma.SortOrder
   password_hash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  token_version?: Prisma.SortOrder
+  must_change_password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type UsersAvgOrderByAggregateInput = {
+  token_version?: Prisma.SortOrder
 }
 
 export type UsersMaxOrderByAggregateInput = {
@@ -370,6 +450,8 @@ export type UsersMaxOrderByAggregateInput = {
   phone?: Prisma.SortOrder
   password_hash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  token_version?: Prisma.SortOrder
+  must_change_password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -381,8 +463,14 @@ export type UsersMinOrderByAggregateInput = {
   phone?: Prisma.SortOrder
   password_hash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  token_version?: Prisma.SortOrder
+  must_change_password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type UsersSumOrderByAggregateInput = {
+  token_version?: Prisma.SortOrder
 }
 
 export type UsersScalarRelationFilter = {
@@ -396,6 +484,18 @@ export type StringFieldUpdateOperationsInput = {
 
 export type EnumRoleFieldUpdateOperationsInput = {
   set?: $Enums.Role
+}
+
+export type IntFieldUpdateOperationsInput = {
+  set?: number
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
+export type BoolFieldUpdateOperationsInput = {
+  set?: boolean
 }
 
 export type DateTimeFieldUpdateOperationsInput = {
@@ -437,6 +537,8 @@ export type UsersCreateWithoutAppointmentsInput = {
   phone: string
   password_hash: string
   role?: $Enums.Role
+  token_version?: number
+  must_change_password?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   recoveryPasswordToken?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
@@ -449,6 +551,8 @@ export type UsersUncheckedCreateWithoutAppointmentsInput = {
   phone: string
   password_hash: string
   role?: $Enums.Role
+  token_version?: number
+  must_change_password?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   recoveryPasswordToken?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
@@ -477,6 +581,8 @@ export type UsersUpdateWithoutAppointmentsInput = {
   phone?: Prisma.StringFieldUpdateOperationsInput | string
   password_hash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  token_version?: Prisma.IntFieldUpdateOperationsInput | number
+  must_change_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   recoveryPasswordToken?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
@@ -489,6 +595,8 @@ export type UsersUncheckedUpdateWithoutAppointmentsInput = {
   phone?: Prisma.StringFieldUpdateOperationsInput | string
   password_hash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  token_version?: Prisma.IntFieldUpdateOperationsInput | number
+  must_change_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   recoveryPasswordToken?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
@@ -501,6 +609,8 @@ export type UsersCreateWithoutRecoveryPasswordTokenInput = {
   phone: string
   password_hash: string
   role?: $Enums.Role
+  token_version?: number
+  must_change_password?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   appointments?: Prisma.AppointmentsCreateNestedManyWithoutClientInput
@@ -513,6 +623,8 @@ export type UsersUncheckedCreateWithoutRecoveryPasswordTokenInput = {
   phone: string
   password_hash: string
   role?: $Enums.Role
+  token_version?: number
+  must_change_password?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   appointments?: Prisma.AppointmentsUncheckedCreateNestedManyWithoutClientInput
@@ -541,6 +653,8 @@ export type UsersUpdateWithoutRecoveryPasswordTokenInput = {
   phone?: Prisma.StringFieldUpdateOperationsInput | string
   password_hash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  token_version?: Prisma.IntFieldUpdateOperationsInput | number
+  must_change_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   appointments?: Prisma.AppointmentsUpdateManyWithoutClientNestedInput
@@ -553,6 +667,8 @@ export type UsersUncheckedUpdateWithoutRecoveryPasswordTokenInput = {
   phone?: Prisma.StringFieldUpdateOperationsInput | string
   password_hash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  token_version?: Prisma.IntFieldUpdateOperationsInput | number
+  must_change_password?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   appointments?: Prisma.AppointmentsUncheckedUpdateManyWithoutClientNestedInput
@@ -605,6 +721,8 @@ export type UsersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   phone?: boolean
   password_hash?: boolean
   role?: boolean
+  token_version?: boolean
+  must_change_password?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   appointments?: boolean | Prisma.Users$appointmentsArgs<ExtArgs>
@@ -619,6 +737,8 @@ export type UsersSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   phone?: boolean
   password_hash?: boolean
   role?: boolean
+  token_version?: boolean
+  must_change_password?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["users"]>
@@ -630,6 +750,8 @@ export type UsersSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   phone?: boolean
   password_hash?: boolean
   role?: boolean
+  token_version?: boolean
+  must_change_password?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["users"]>
@@ -641,11 +763,13 @@ export type UsersSelectScalar = {
   phone?: boolean
   password_hash?: boolean
   role?: boolean
+  token_version?: boolean
+  must_change_password?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type UsersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "email" | "phone" | "password_hash" | "role" | "createdAt" | "updatedAt", ExtArgs["result"]["users"]>
+export type UsersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "email" | "phone" | "password_hash" | "role" | "token_version" | "must_change_password" | "createdAt" | "updatedAt", ExtArgs["result"]["users"]>
 export type UsersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   appointments?: boolean | Prisma.Users$appointmentsArgs<ExtArgs>
   recoveryPasswordToken?: boolean | Prisma.Users$recoveryPasswordTokenArgs<ExtArgs>
@@ -667,6 +791,8 @@ export type $UsersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     phone: string
     password_hash: string
     role: $Enums.Role
+    token_version: number
+    must_change_password: boolean
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["users"]>
@@ -1100,6 +1226,8 @@ export interface UsersFieldRefs {
   readonly phone: Prisma.FieldRef<"Users", 'String'>
   readonly password_hash: Prisma.FieldRef<"Users", 'String'>
   readonly role: Prisma.FieldRef<"Users", 'Role'>
+  readonly token_version: Prisma.FieldRef<"Users", 'Int'>
+  readonly must_change_password: Prisma.FieldRef<"Users", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"Users", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Users", 'DateTime'>
 }

@@ -4,6 +4,7 @@ import { verify } from "jsonwebtoken";
 import crypto from "crypto";
 
 import { UserService } from "./user.service";
+import { env } from "../../schemas/validateEnvSchema";
 import type { UserRepository } from "./user.repository";
 import { sendMail } from "../../config/mailer";
 import {
@@ -31,12 +32,15 @@ const repository = {
   updateUserPassword: vi.fn(),
   findUserById: vi.fn(),
   updateProfile: vi.fn(),
+  searchClients: vi.fn(),
+  incrementTokenVersion: vi.fn(),
 };
 
 const service = new UserService(repository as unknown as UserRepository);
 
-const JWT_SECRET_TESTE = "segredo-so-para-testes";
-const FRONTEND_URL_TESTE = "http://front.teste";
+// valores definidos no vitest.config.mts
+const JWT_SECRET_TESTE = env.JWT_SECRET;
+const FRONTEND_URL_TESTE = env.FRONTEND_URL;
 const SENHA_CORRETA = "senha123";
 
 let passwordHash: string;
@@ -49,6 +53,8 @@ function criarUsuario(sobrescrever: Record<string, unknown> = {}) {
     phone: "11999999999",
     password_hash: passwordHash,
     role: "CLIENT",
+    token_version: 0,
+    must_change_password: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...sobrescrever,
@@ -62,8 +68,6 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.stubEnv("JWT_SECRET", JWT_SECRET_TESTE);
-  vi.stubEnv("FRONTEND_URL", FRONTEND_URL_TESTE);
 });
 
 afterEach(() => {
@@ -84,6 +88,7 @@ describe("UserService.authLogin", () => {
       id: usuario.id,
       name: usuario.name,
       role: usuario.role,
+      must_change_password: false,
       token: expect.any(String),
     });
 
@@ -122,15 +127,6 @@ describe("UserService.authLogin", () => {
     });
   });
 
-  it("lança InternalServerError quando JWT_SECRET não está configurado", async () => {
-    repository.findUserByEmail.mockResolvedValue(criarUsuario());
-    vi.stubEnv("JWT_SECRET", "");
-
-    await expect(
-      service.authLogin({ email: "maria@email.com", password: SENHA_CORRETA }),
-    ).rejects.toBeInstanceOf(InternalServerError);
-  });
-
   it.each([
     ["senha vazia", ""],
     ["senha com espaço no fim", `${SENHA_CORRETA} `],
@@ -152,14 +148,15 @@ describe("UserService.CreateNewUser", () => {
     password: SENHA_CORRETA,
   };
 
-  it("cria o usuário, salva a senha com hash e devolve o nome", async () => {
+  it("cria o usuário, salva a senha com hash e devolve o usuário sem o password_hash", async () => {
     repository.findUserByEmail.mockResolvedValue(null);
     repository.findUserByPhone.mockResolvedValue(null);
     repository.createUser.mockResolvedValue(criarUsuario());
 
-    const nome = await service.CreateNewUser(dados);
+    const criado = await service.CreateNewUser(dados);
 
-    expect(nome).toBe("Maria");
+    expect(criado).toMatchObject({ id: "user-id-1", name: "Maria", email: dados.email });
+    expect(criado).not.toHaveProperty("password_hash");
 
     const gravado = repository.createUser.mock.calls[0]![0];
 
@@ -337,19 +334,21 @@ describe("UserService.resetPassword", () => {
 });
 
 describe("UserService.getUserById", () => {
-  it("devolve o usuário sem o password_hash", async () => {
+  it("devolve o usuário sem os campos internos de segurança (password_hash e token_version)", async () => {
     const usuario = criarUsuario();
     repository.findUserById.mockResolvedValue(usuario);
 
     const resultado = await service.getUserById({ id: usuario.id });
 
     expect(resultado).not.toHaveProperty("password_hash");
+    expect(resultado).not.toHaveProperty("token_version");
     expect(resultado).toEqual({
       id: usuario.id,
       name: usuario.name,
       email: usuario.email,
       phone: usuario.phone,
       role: usuario.role,
+      must_change_password: false,
       createdAt: usuario.createdAt,
       updatedAt: usuario.updatedAt,
     });
@@ -414,5 +413,80 @@ describe("UserService.updateProfile", () => {
     expect(gravado.phone).toBeUndefined();
     expect(gravado.password_hash).not.toBe("novaSenha123");
     await expect(compare("novaSenha123", gravado.password_hash)).resolves.toBe(true);
+  });
+});
+
+describe("UserService.searchClients", () => {
+  it("repassa o texto da busca e devolve os clientes encontrados", async () => {
+    const clientes = [{ id: "user-id-1", name: "Maria" }];
+    repository.searchClients.mockResolvedValue(clientes);
+
+    await expect(service.searchClients({ search: "mar" })).resolves.toEqual(clientes);
+    expect(repository.searchClients).toHaveBeenCalledWith({ search: "mar" });
+    expect(repository.searchClients).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("UserService: um único token ativo por usuário", () => {
+  it("o login gera uma versão nova e coloca essa versão no token", async () => {
+    const usuario = criarUsuario();
+    repository.findUserByEmail.mockResolvedValue(usuario);
+    repository.incrementTokenVersion.mockResolvedValue(7);
+
+    const resultado = await service.authLogin({ email: usuario.email, password: SENHA_CORRETA });
+
+    expect(repository.incrementTokenVersion).toHaveBeenCalledWith({ userId: usuario.id });
+    expect(repository.incrementTokenVersion).toHaveBeenCalledTimes(1);
+    expect(verify(resultado.token, JWT_SECRET_TESTE)).toMatchObject({ sub: usuario.id, ver: 7 });
+  });
+
+  it("um login com senha errada não revoga o token que já existe", async () => {
+    repository.findUserByEmail.mockResolvedValue(criarUsuario());
+
+    await expect(
+      service.authLogin({ email: "maria@email.com", password: "senha-errada" }),
+    ).rejects.toBeInstanceOf(UnauthorizedError);
+    expect(repository.incrementTokenVersion).not.toHaveBeenCalled();
+  });
+
+  it("trocar a senha pelo link do e-mail revoga os tokens do usuário", async () => {
+    repository.markPasswordResetTokenAsUsed.mockResolvedValue(true);
+    repository.findPasswordResetToken.mockResolvedValue({ userId: "user-id-1" });
+    repository.updateUserPassword.mockResolvedValue(criarUsuario());
+
+    await service.resetPassword({ token: "token-do-email", newPassword: "senhaNova123" });
+
+    expect(repository.incrementTokenVersion).toHaveBeenCalledWith({ userId: "user-id-1" });
+  });
+
+  it("trocar a senha pelo perfil revoga os tokens do usuário", async () => {
+    repository.updateProfile.mockResolvedValue({ id: "user-id-1" });
+
+    await service.updateProfile({ id: "user-id-1", password: "senhaNova123" });
+
+    expect(repository.incrementTokenVersion).toHaveBeenCalledWith({ userId: "user-id-1" });
+  });
+
+  it("trocar só o telefone não revoga nada", async () => {
+    repository.findUserByPhone.mockResolvedValue(null);
+    repository.updateProfile.mockResolvedValue({ id: "user-id-1" });
+
+    await service.updateProfile({ id: "user-id-1", phone: "11888888888" });
+
+    expect(repository.incrementTokenVersion).not.toHaveBeenCalled();
+  });
+});
+
+describe("UserService: troca de senha obrigatória no primeiro acesso", () => {
+  it("o login avisa quando a senha precisa ser trocada", async () => {
+    repository.findUserByEmail.mockResolvedValue(criarUsuario({ must_change_password: true }));
+    repository.incrementTokenVersion.mockResolvedValue(1);
+
+    const resultado = await service.authLogin({
+      email: "maria@email.com",
+      password: SENHA_CORRETA,
+    });
+
+    expect(resultado.must_change_password).toBe(true);
   });
 });

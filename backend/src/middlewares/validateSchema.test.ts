@@ -55,7 +55,7 @@ describe("validateSchema", () => {
 
   it("remove do req.body os campos que o schema não conhece", async () => {
     const req = criarReq({
-      body: { email: "maria@email.com", password: "senha123", role: "ADMIN" },
+      body: { email: "maria@email.com", password: "senha123", role: "PROF" },
     });
 
     await validateSchema(authLoginSchema)(req, res, next);

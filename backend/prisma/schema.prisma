@@ -9,7 +9,7 @@ datasource db {
 
 enum Role {
   CLIENT
-  ADMIN
+  PROF
 }
 
 enum Status {
@@ -25,6 +25,11 @@ model Users {
   phone String @unique
   password_hash String
   role Role @default(CLIENT)
+  //Aumenta a cada login e a cada troca de senha; o token guarda a versão (ver).
+  //Token com versão diferente da atual foi revogado.
+  token_version Int @default(0)
+  //Ligado no profissional criado pelo seed: a senha inicial precisa ser trocada antes de usar o sistema
+  must_change_password Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

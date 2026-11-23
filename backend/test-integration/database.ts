@@ -24,7 +24,7 @@ export async function limparBanco() {
 // email e telefone são únicos no banco: o contador evita repetição entre chamadas
 let contador = 0;
 
-export async function criarUsuario(sobrescrever: { role?: "CLIENT" | "ADMIN" } = {}) {
+export async function criarUsuario(sobrescrever: { role?: "CLIENT" | "PROF" } = {}) {
   contador++;
   return prismaClient.users.create({
     data: {
